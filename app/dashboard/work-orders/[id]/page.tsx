@@ -48,7 +48,7 @@ export default function WorkOrderDetailPage() {
   const [loading, setLoading] = useState(true)
   const [status, setStatus] = useState('')
   const [diagnosis, setDiagnosis] = useState('')
-
+  const [parts, setParts] = useState<{id: string; name: string; list_price: number}[]>([])
   const [newDesc, setNewDesc] = useState('')
   const [newQty, setNewQty] = useState('1')
   const [newPrice, setNewPrice] = useState('')
@@ -57,7 +57,10 @@ export default function WorkOrderDetailPage() {
 
   const inputCls = "w-full bg-[#111] border border-white/[0.08] rounded-lg px-3 py-2 text-sm text-white placeholder-[#444] focus:outline-none focus:ring-1 focus:ring-blue-500"
 
-  useEffect(() => { fetchOrder() }, [])
+  useEffect(() => {
+  fetchOrder()
+  supabase.from('parts').select('id, name, list_price').eq('is_active', true).order('name').then(({ data }) => setParts(data ?? []))
+}, [])
 
   async function fetchOrder() {
     const { data } = await supabase
@@ -345,23 +348,40 @@ export default function WorkOrderDetailPage() {
           <div className="bg-[#1a1a1a] rounded-xl border border-white/[0.06] p-4">
             <p className="text-[#444] text-xs uppercase tracking-wide mb-4">Maliyet Kalemleri</p>
 
-            <div className="grid grid-cols-12 gap-2 mb-4">
-              <input value={newDesc} onChange={e => setNewDesc(e.target.value)}
-                placeholder="Açıklama" className={inputCls + ' col-span-4'} />
-              <input value={newQty} onChange={e => setNewQty(e.target.value)}
-                placeholder="Adet" type="number" min="0.01" step="0.01"
-                className={inputCls + ' col-span-2'} />
-              <input value={newPrice} onChange={e => setNewPrice(e.target.value)}
-                placeholder="Fiyat" type="number" min="0" step="0.01"
-                className={inputCls + ' col-span-3'} />
-              <input value={newDiscount} onChange={e => setNewDiscount(e.target.value)}
-                placeholder="İndirim%" type="number" min="0" max="100"
-                className={inputCls + ' col-span-2'} />
-              <button onClick={addItem} disabled={saving}
-                className="col-span-1 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-sm transition disabled:opacity-50">
-                +
-              </button>
-            </div>
+           <div className="space-y-2 mb-4">
+  <div className="flex gap-2">
+    <select
+      onChange={e => {
+        const part = parts.find(p => p.id === e.target.value)
+        if (part) { setNewDesc(part.name); setNewPrice(part.list_price.toString()) }
+      }}
+      className={inputCls + ' flex-1'}
+      defaultValue=""
+    >
+      <option value="">Stoktan seç...</option>
+      {parts.map(p => (
+        <option key={p.id} value={p.id}>{p.name} — {p.list_price.toFixed(2)} TL</option>
+      ))}
+    </select>
+  </div>
+  <div className="grid grid-cols-12 gap-2">
+    <input value={newDesc} onChange={e => setNewDesc(e.target.value)}
+      placeholder="Açıklama" className={inputCls + ' col-span-4'} />
+    <input value={newQty} onChange={e => setNewQty(e.target.value)}
+      placeholder="Adet" type="number" min="0.01" step="0.01"
+      className={inputCls + ' col-span-2'} />
+    <input value={newPrice} onChange={e => setNewPrice(e.target.value)}
+      placeholder="Fiyat" type="number" min="0" step="0.01"
+      className={inputCls + ' col-span-3'} />
+    <input value={newDiscount} onChange={e => setNewDiscount(e.target.value)}
+      placeholder="İndirim%" type="number" min="0" max="100"
+      className={inputCls + ' col-span-2'} />
+    <button onClick={addItem} disabled={saving}
+      className="col-span-1 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-sm transition disabled:opacity-50">
+      +
+    </button>
+  </div>
+</div>
 
             {items.length === 0 ? (
               <p className="text-[#444] text-xs text-center py-6">Henüz kalem eklenmedi</p>
