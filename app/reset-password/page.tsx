@@ -40,7 +40,7 @@ export default function ResetPasswordPage() {
 
   if (!ready) return (
     <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center">
-      <p className="text-gray-500 text-sm">Baglanti dogrulanıyor...</p>
+      <p className="text-gray-500 text-sm">Dogrulanıyor...</p>
     </div>
   )
 
@@ -87,5 +87,5 @@ export default function ResetPasswordPage() {
   )
 }
 '@
-[System.IO.File]::WriteAllText("$PWD\app\reset-password\page.tsx", $content, [System.Text.UTF8Encoding]::new($false))
-Write-Host "Dosya yazildi"
+[System.IO.File]::WriteAllText("C:\teknik-servis\app\reset-password\page.tsx", $content, [System.Text.UTF8Encoding]::new($false))
+Write-Host "Tamam"
