@@ -12,16 +12,9 @@ type WorkOrder = {
   status: string
   problem_description: string
   created_at: string
-  customers: { full_name: string; phone: string }[] | null
-  devices: { brand: string; model: string }[] | null
-  technicians: { full_name: string }[] | null
-}
-
-type Stats = {
-  aktif: number
-  bekleyen: number
-  tamamlanan: number
-  bugunYeni: number
+  customers: { full_name: string; phone: string } | null
+  devices: { brand: string; model: string } | null
+  technicians: { full_name: string } | null
 }
 
 const STATUS: Record<string, { label: string; cls: string }> = {
@@ -36,7 +29,7 @@ const STATUS: Record<string, { label: string; cls: string }> = {
 
 export default function DashboardPage() {
   const [orders, setOrders] = useState<WorkOrder[]>([])
-  const [stats, setStats] = useState<Stats>({ aktif: 0, bekleyen: 0, tamamlanan: 0, bugunYeni: 0 })
+  const [stats, setStats] = useState({ aktif: 0, bekleyen: 0, tamamlanan: 0, bugunYeni: 0 })
   const [ready, setReady] = useState(false)
   const router = useRouter()
   const supabase = createClient()
@@ -53,9 +46,9 @@ export default function DashboardPage() {
       .from('work_orders')
       .select(`
         id, order_number, status, problem_description, created_at,
-        customers(full_name, phone),
-        devices(brand, model),
-        technicians(full_name)
+        customers:customer_id(full_name, phone),
+        devices:device_id(brand, model),
+        technicians:technician_id(full_name)
       `)
       .order('created_at', { ascending: false })
 
@@ -83,7 +76,6 @@ export default function DashboardPage() {
       <Navbar />
       <div className="px-4 sm:px-6 py-6 max-w-7xl mx-auto">
 
-        {/* İstatistik kartları */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-8">
           <div className="bg-[#1a1a1a] rounded-xl p-4 border border-white/[0.06]">
             <p className="text-[#444] text-[11px] uppercase tracking-wide mb-2">Aktif İşler</p>
@@ -107,7 +99,6 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Son iş emirleri */}
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-white text-sm font-medium">Son İş Emirleri</h2>
           <div className="flex gap-2">
@@ -122,7 +113,6 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Masaüstü tablo */}
         <div className="hidden sm:block bg-[#1a1a1a] rounded-xl border border-white/[0.06] overflow-hidden">
           <table className="w-full text-xs">
             <thead>
@@ -143,25 +133,28 @@ export default function DashboardPage() {
                   onClick={() => router.push(`/dashboard/work-orders/${o.id}`)}>
                   <td className="px-4 py-3 font-mono text-[#444]">#{o.order_number}</td>
                   <td className="px-4 py-3">
-                    <p className="text-white font-medium">{o.customers?.[0]?.full_name ?? '—'}</p>
-                    <p className="text-[#444] mt-0.5">{o.customers?.[0]?.phone}</p>
+                    <p className="text-white font-medium">{o.customers?.full_name ?? '—'}</p>
+                    <p className="text-[#444] mt-0.5">{o.customers?.phone}</p>
                   </td>
-                  <td className="px-4 py-3 text-[#888]">{o.devices ? `${o.devices[0]?.brand} ${o.devices[0]?.model}` : '—'}</td>
+                  <td className="px-4 py-3 text-[#888]">
+                    {o.devices ? `${o.devices.brand} ${o.devices.model}` : '—'}
+                  </td>
                   <td className="px-4 py-3 text-[#888] max-w-[160px] truncate">{o.problem_description}</td>
-                  <td className="px-4 py-3 text-[#888]">{o.technicians?.[0]?.full_name ?? '—'}</td>
+                  <td className="px-4 py-3 text-[#888]">{o.technicians?.full_name ?? '—'}</td>
                   <td className="px-4 py-3">
                     <span className={`inline-block px-2 py-0.5 rounded-full text-[11px] font-medium border ${STATUS[o.status]?.cls}`}>
                       {STATUS[o.status]?.label}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-[#444]">{new Date(o.created_at).toLocaleDateString('tr-TR')}</td>
+                  <td className="px-4 py-3 text-[#444]">
+                    {new Date(o.created_at).toLocaleDateString('tr-TR')}
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
 
-        {/* Mobil kartlar */}
         <div className="sm:hidden space-y-2">
           {orders.map(o => (
             <div key={o.id}
@@ -170,15 +163,15 @@ export default function DashboardPage() {
               <div className="flex items-start justify-between mb-2">
                 <div>
                   <span className="font-mono text-[#444] text-xs">#{o.order_number}</span>
-                  <p className="text-white font-medium text-sm">{o.customers?.[0]?.full_name ?? '—'}</p>
-                  <p className="text-[#555] text-xs">{o.customers?.[0]?.phone}</p>
+                  <p className="text-white font-medium text-sm">{o.customers?.full_name ?? '—'}</p>
+                  <p className="text-[#555] text-xs">{o.customers?.phone}</p>
                 </div>
                 <span className={`inline-block px-2 py-0.5 rounded-full text-[11px] font-medium border ${STATUS[o.status]?.cls}`}>
                   {STATUS[o.status]?.label}
                 </span>
               </div>
               <p className="text-[#555] text-xs truncate">
-                {o.devices ? `${o.devices[0]?.brand} ${o.devices[0]?.model}` : '—'} · {o.problem_description}
+                {o.devices ? `${o.devices.brand} ${o.devices.model}` : '—'} · {o.problem_description}
               </p>
             </div>
           ))}

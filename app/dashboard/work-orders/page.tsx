@@ -42,9 +42,9 @@ export default function WorkOrdersPage() {
       .from('work_orders')
       .select(`
         id, order_number, status, problem_description, created_at,
-        customers(full_name, phone),
-        devices(brand, model, serial_number),
-        technicians(full_name)
+        customers:customer_id(full_name, phone),
+        devices:device_id(brand, model, serial_number),
+        technicians:technician_id(full_name)
       `)
       .order('created_at', { ascending: false })
 
@@ -65,7 +65,6 @@ export default function WorkOrdersPage() {
       o.order_number?.toString().includes(q)
 
     const matchStatus = !statusFilter || o.status === statusFilter
-
     return matchSearch && matchStatus
   })
 
@@ -82,7 +81,6 @@ export default function WorkOrdersPage() {
           </Link>
         </div>
 
-        {/* Arama ve filtre */}
         <div className="flex gap-2 mb-4">
           <input
             value={search}
@@ -102,7 +100,6 @@ export default function WorkOrdersPage() {
           </select>
         </div>
 
-        {/* Sonuç sayısı */}
         {search || statusFilter ? (
           <p className="text-[#444] text-xs mb-3">{filtered.length} sonuç bulundu</p>
         ) : null}
@@ -115,7 +112,6 @@ export default function WorkOrdersPage() {
           </div>
         ) : (
           <>
-            {/* Masaüstü tablo */}
             <div className="hidden sm:block bg-[#1a1a1a] rounded-xl border border-white/[0.06] overflow-hidden">
               <table className="w-full text-xs">
                 <thead>
@@ -162,7 +158,6 @@ export default function WorkOrdersPage() {
               </table>
             </div>
 
-            {/* Mobil kartlar */}
             <div className="sm:hidden space-y-2">
               {filtered.map(o => (
                 <div key={o.id}
