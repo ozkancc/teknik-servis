@@ -1,5 +1,4 @@
-﻿$content = @'
-'use client'
+﻿'use client'
 
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase'
@@ -86,6 +85,3 @@ export default function ResetPasswordPage() {
     </div>
   )
 }
-'@
-[System.IO.File]::WriteAllText("C:\teknik-servis\app\reset-password\page.tsx", $content, [System.Text.UTF8Encoding]::new($false))
-Write-Host "Tamam"
