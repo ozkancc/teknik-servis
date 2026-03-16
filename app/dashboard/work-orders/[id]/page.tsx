@@ -104,9 +104,35 @@ export default function WorkOrderDetailPage() {
 
   async function updateOrder() {
     await supabase.from('work_orders').update({ status, diagnosis }).eq('id', id)
+
+    if (order?.customers?.email) {
+      const statusMessages: Record<string, string> = {
+        incelemede:      'Cihazınız teknik servisimize ulaştı ve inceleme sürecine alındı.',
+        onay_bekleniyor: 'Cihazınız incelendi. Tamir işlemi için onayınızı bekliyoruz.',
+        tamirde:         'Cihazınızın tamir işlemi başladı.',
+        tamamlandi:      'Cihazınızın tamiri tamamlandı. Teslim almak için bizi arayabilirsiniz.',
+        teslim_edildi:   'Cihazınız teslim edilmiştir. Bizi tercih ettiğiniz için teşekkür ederiz.',
+        iptal:           'İş emriniz iptal edilmiştir.',
+      }
+
+      if (statusMessages[status]) {
+        await fetch('/api/send-email', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            to: order.customers.email,
+            customerName: order.customers.full_name,
+            orderNumber: order.order_number,
+            status,
+            deviceName: order.devices ? `${order.devices.brand} ${order.devices.model}` : '',
+            message: statusMessages[status],
+          }),
+        })
+      }
+    }
+
     alert('Kaydedildi!')
   }
-
   function calcTotal() {
     return items.reduce((sum, item) => {
       const line = item.quantity * item.unit_price

@@ -84,7 +84,31 @@ export default function NewWorkOrderPage() {
     })
 
     if (woError) { setError('İş emri oluşturulamadı: ' + woError.message); setLoading(false); return }
-    router.push('/dashboard/work-orders')
+const { data: newOrder } = await supabase
+      .from('work_orders')
+      .select('order_number, customers(full_name, email), devices(brand, model)')
+      .eq('customer_id', finalCustomerId)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .single()
+
+    if (newOrder && (newOrder as any).customers?.email) {
+      const c = (newOrder as any).customers
+      const d = (newOrder as any).devices
+      await fetch('/api/send-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          to: c.email,
+          customerName: c.full_name,
+          orderNumber: (newOrder as any).order_number,
+          status: 'beklemede',
+          deviceName: d ? `${d.brand} ${d.model}` : '',
+          message: 'İş emriniz oluşturuldu. En kısa sürede cihazınızı inceleyeceğiz.',
+        }),
+      })
+    }    
+router.push('/dashboard/work-orders')
   }
 
   return (
