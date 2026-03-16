@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import Navbar from '@/components/Navbar'
+import { useRouter } from 'next/navigation'
 
 type Customer = {
   id: string
@@ -24,6 +25,7 @@ export default function CustomersPage() {
   const [address, setAddress] = useState('')
   const [saving, setSaving] = useState(false)
   const supabase = createClient()
+  const router = useRouter()
 
   useEffect(() => { fetchCustomers() }, [])
 
@@ -118,7 +120,7 @@ export default function CustomersPage() {
                 </thead>
                 <tbody>
                   {filtered.map(c => (
-                    <tr key={c.id} className="border-b border-white/[0.04] last:border-0 hover:bg-white/[0.02] transition">
+                    <tr key={c.id} className="border-b border-white/[0.04] last:border-0 hover:bg-white/[0.02] transition cursor-pointer" onClick={() => router.push(`/dashboard/customers/${c.id}`)}>
                       <td className="px-4 py-3 text-white font-medium">{c.full_name}</td>
                       <td className="px-4 py-3 text-[#888]">{c.phone ?? '—'}</td>
                       <td className="px-4 py-3 text-[#888]">{c.email ?? '—'}</td>
@@ -133,7 +135,7 @@ export default function CustomersPage() {
             {/* Mobil liste */}
             <div className="sm:hidden space-y-2">
               {filtered.map(c => (
-                <div key={c.id} className="bg-[#1a1a1a] rounded-xl border border-white/[0.06] p-4">
+                <div key={c.id} className="bg-[#1a1a1a] rounded-xl border border-white/[0.06] p-4 cursor-pointer active:scale-[0.99] transition" onClick={() => router.push(`/dashboard/customers/${c.id}`)}>
                   <p className="text-white font-medium text-sm mb-1">{c.full_name}</p>
                   <p className="text-[#666] text-xs">{c.phone ?? '—'}</p>
                   <p className="text-[#555] text-xs">{c.email ?? '—'}</p>
