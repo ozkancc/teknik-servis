@@ -18,11 +18,12 @@ export default function Navbar() {
   }
 
   const links = [
-    { href: '/dashboard', label: 'Ana Sayfa' },
-    { href: '/dashboard/work-orders', label: 'İş Emirleri' },
-    { href: '/dashboard/customers', label: 'Müşteriler' },
-    { href: '/dashboard/technicians', label: 'Teknisyenler' },
-  ]
+  { href: '/dashboard', label: 'Ana Sayfa' },
+  { href: '/dashboard/work-orders', label: 'İş Emirleri' },
+  { href: '/dashboard/customers', label: 'Müşteriler' },
+  { href: '/dashboard/technicians', label: 'Teknisyenler' },
+  { href: '/dashboard/parts', label: 'Stok' },
+]
 
   return (
     <nav className="bg-[#1a1a1a] border-b border-white/[0.08] sticky top-0 z-50">
