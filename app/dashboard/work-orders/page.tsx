@@ -46,7 +46,7 @@ export default function WorkOrdersPage() {
       `)
       .order('created_at', { ascending: false })
 
-    setOrders((data as WorkOrder[]) ?? [])
+    setOrders((data as unknown as WorkOrder[]) ?? [])
     setLoading(false)
   }
 

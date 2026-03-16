@@ -73,7 +73,7 @@ export default function WorkOrderDetailPage() {
       .single()
 
     if (data) {
-      const wo = data as WorkOrder
+      const wo = data as unknown as WorkOrder
       setOrder(wo)
       setItems(wo.work_order_items ?? [])
       setStatus(wo.status)
