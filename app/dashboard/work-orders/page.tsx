@@ -13,7 +13,7 @@ type WorkOrder = {
   problem_description: string
   created_at: string
   customers: { full_name: string; phone: string } | null
-  devices: { brand: string; model: string } | null
+  devices: { brand: string; model: string; serial_number: string } | null
   technicians: { full_name: string } | null
 }
 
@@ -30,6 +30,8 @@ const STATUS: Record<string, { label: string; cls: string }> = {
 export default function WorkOrdersPage() {
   const [orders, setOrders] = useState<WorkOrder[]>([])
   const [loading, setLoading] = useState(true)
+  const [search, setSearch] = useState('')
+  const [statusFilter, setStatusFilter] = useState('')
   const supabase = createClient()
   const router = useRouter()
 
@@ -41,7 +43,7 @@ export default function WorkOrdersPage() {
       .select(`
         id, order_number, status, problem_description, created_at,
         customers(full_name, phone),
-        devices(brand, model),
+        devices(brand, model, serial_number),
         technicians(full_name)
       `)
       .order('created_at', { ascending: false })
@@ -49,6 +51,23 @@ export default function WorkOrdersPage() {
     setOrders((data as unknown as WorkOrder[]) ?? [])
     setLoading(false)
   }
+
+  const filtered = orders.filter(o => {
+    const q = search.toLowerCase()
+    const matchSearch = !q ||
+      o.customers?.full_name?.toLowerCase().includes(q) ||
+      o.customers?.phone?.includes(q) ||
+      o.devices?.brand?.toLowerCase().includes(q) ||
+      o.devices?.model?.toLowerCase().includes(q) ||
+      o.devices?.serial_number?.toLowerCase().includes(q) ||
+      o.problem_description?.toLowerCase().includes(q) ||
+      o.technicians?.full_name?.toLowerCase().includes(q) ||
+      o.order_number?.toString().includes(q)
+
+    const matchStatus = !statusFilter || o.status === statusFilter
+
+    return matchSearch && matchStatus
+  })
 
   return (
     <div className="min-h-screen bg-[#0f0f0f]">
@@ -63,12 +82,36 @@ export default function WorkOrdersPage() {
           </Link>
         </div>
 
+        {/* Arama ve filtre */}
+        <div className="flex gap-2 mb-4">
+          <input
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Müşteri, telefon, cihaz, seri no, teknisyen ara..."
+            className="flex-1 bg-[#1a1a1a] border border-white/[0.08] rounded-lg px-4 py-2 text-sm text-white placeholder-[#444] focus:outline-none focus:ring-1 focus:ring-blue-500"
+          />
+          <select
+            value={statusFilter}
+            onChange={e => setStatusFilter(e.target.value)}
+            className="bg-[#1a1a1a] border border-white/[0.08] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+          >
+            <option value="">Tüm Durumlar</option>
+            {Object.entries(STATUS).map(([val, { label }]) => (
+              <option key={val} value={val}>{label}</option>
+            ))}
+          </select>
+        </div>
+
+        {/* Sonuç sayısı */}
+        {search || statusFilter ? (
+          <p className="text-[#444] text-xs mb-3">{filtered.length} sonuç bulundu</p>
+        ) : null}
+
         {loading ? (
           <p className="text-[#444] text-sm">Yükleniyor...</p>
-        ) : orders.length === 0 ? (
+        ) : filtered.length === 0 ? (
           <div className="text-center py-20 text-[#444]">
-            <p className="mb-1">Henüz iş emri yok</p>
-            <p className="text-xs">Yeni iş emri oluşturmak için yukarıdaki butonu kullanın</p>
+            <p>{search || statusFilter ? 'Sonuç bulunamadı' : 'Henüz iş emri yok'}</p>
           </div>
         ) : (
           <>
@@ -80,6 +123,7 @@ export default function WorkOrdersPage() {
                     <th className="text-left px-4 py-3 text-[#444] font-medium">#</th>
                     <th className="text-left px-4 py-3 text-[#444] font-medium">Müşteri</th>
                     <th className="text-left px-4 py-3 text-[#444] font-medium">Cihaz</th>
+                    <th className="text-left px-4 py-3 text-[#444] font-medium">Seri No</th>
                     <th className="text-left px-4 py-3 text-[#444] font-medium">Sorun</th>
                     <th className="text-left px-4 py-3 text-[#444] font-medium">Teknisyen</th>
                     <th className="text-left px-4 py-3 text-[#444] font-medium">Durum</th>
@@ -87,24 +131,31 @@ export default function WorkOrdersPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {orders.map(o => (
+                  {filtered.map(o => (
                     <tr key={o.id}
-                      className="border-b border-white/[0.04] hover:bg-white/[0.02] cursor-pointer transition last:border-0"
+                      className="border-b border-white/[0.04] last:border-0 hover:bg-white/[0.02] cursor-pointer transition"
                       onClick={() => router.push(`/dashboard/work-orders/${o.id}`)}>
                       <td className="px-4 py-3 font-mono text-[#444]">#{o.order_number}</td>
                       <td className="px-4 py-3">
                         <p className="text-white font-medium">{o.customers?.full_name ?? '—'}</p>
                         <p className="text-[#444] mt-0.5">{o.customers?.phone}</p>
                       </td>
-                      <td className="px-4 py-3 text-[#888]">{o.devices ? `${o.devices.brand} ${o.devices.model}` : '—'}</td>
-                      <td className="px-4 py-3 text-[#888] max-w-[180px] truncate">{o.problem_description}</td>
+                      <td className="px-4 py-3 text-[#888]">
+                        {o.devices ? `${o.devices.brand} ${o.devices.model}` : '—'}
+                      </td>
+                      <td className="px-4 py-3 text-[#666] font-mono text-[11px]">
+                        {o.devices?.serial_number ?? '—'}
+                      </td>
+                      <td className="px-4 py-3 text-[#888] max-w-[140px] truncate">{o.problem_description}</td>
                       <td className="px-4 py-3 text-[#888]">{o.technicians?.full_name ?? '—'}</td>
                       <td className="px-4 py-3">
                         <span className={`inline-block px-2 py-0.5 rounded-full text-[11px] font-medium border ${STATUS[o.status]?.cls}`}>
                           {STATUS[o.status]?.label}
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-[#444]">{new Date(o.created_at).toLocaleDateString('tr-TR')}</td>
+                      <td className="px-4 py-3 text-[#444]">
+                        {new Date(o.created_at).toLocaleDateString('tr-TR')}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -113,7 +164,7 @@ export default function WorkOrdersPage() {
 
             {/* Mobil kartlar */}
             <div className="sm:hidden space-y-2">
-              {orders.map(o => (
+              {filtered.map(o => (
                 <div key={o.id}
                   className="bg-[#1a1a1a] rounded-xl border border-white/[0.06] p-4 cursor-pointer active:scale-[0.99] transition"
                   onClick={() => router.push(`/dashboard/work-orders/${o.id}`)}>
@@ -127,9 +178,11 @@ export default function WorkOrdersPage() {
                       {STATUS[o.status]?.label}
                     </span>
                   </div>
-                  <p className="text-[#555] text-xs truncate">
-                    {o.devices ? `${o.devices.brand} ${o.devices.model}` : '—'} · {o.problem_description}
+                  <p className="text-[#555] text-xs">
+                    {o.devices ? `${o.devices.brand} ${o.devices.model}` : '—'}
+                    {o.devices?.serial_number ? ` · ${o.devices.serial_number}` : ''}
                   </p>
+                  <p className="text-[#444] text-xs truncate mt-0.5">{o.problem_description}</p>
                 </div>
               ))}
             </div>

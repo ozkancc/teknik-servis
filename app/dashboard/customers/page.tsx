@@ -43,10 +43,14 @@ export default function CustomersPage() {
     setSaving(false)
   }
 
-  const filtered = customers.filter(c =>
-    c.full_name?.toLowerCase().includes(search.toLowerCase()) ||
-    c.phone?.includes(search)
-  )
+ const filtered = customers.filter(c => {
+  const q = search.toLowerCase()
+  return !q ||
+    c.full_name?.toLowerCase().includes(q) ||
+    c.phone?.includes(q) ||
+    c.email?.toLowerCase().includes(q) ||
+    c.address?.toLowerCase().includes(q)
+})
 
   const inputCls = "w-full bg-[#111] border border-white/[0.08] rounded-lg px-3 py-2 text-sm text-white placeholder-[#444] focus:outline-none focus:ring-1 focus:ring-blue-500"
 
