@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
+import { useEffect } from 'react'
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
@@ -11,6 +12,12 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false)
   const router = useRouter()
   const supabase = createClient()
+useEffect(() => {
+    const hash = window.location.hash
+    if (hash && hash.includes('type=recovery')) {
+      router.replace('/reset-password' + hash)
+    }
+  }, [])
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault()
