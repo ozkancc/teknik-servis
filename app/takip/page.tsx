@@ -35,8 +35,8 @@ export default function TakipPage() {
   const [searched, setSearched] = useState(false)
   const [error, setError] = useState('')
 
-  async function handleSearch(e: React.FormEvent) {
-    e.preventDefault()
+  async function handleSearch(e?: React.FormEvent) {
+    if (e) e.preventDefault()
     if (!phone) return
     setLoading(true)
     setError('')
@@ -44,12 +44,15 @@ export default function TakipPage() {
 
     const supabase = createClient()
     const digits = phone.replace(/\D/g, '').slice(-10)
+    
 
-    const { data: customers } = await supabase
+    const { data: customers, error: custError } = await supabase
       .from('customers')
       .select('id, full_name')
       .ilike('phone', `%${digits}%`)
       .limit(1)
+
+    
 
     if (!customers || customers.length === 0) {
       setError('Bu telefon numarasına kayıtlı cihaz bulunamadı.')
@@ -62,15 +65,17 @@ export default function TakipPage() {
     const customer = customers[0]
     setCustomerName(customer.full_name)
 
-    const { data } = await supabase
+    const { data, error: ordErr } = await supabase
       .from('work_orders')
       .select(`
-        id, order_number, status, problem_description, diagnosis, created_at, updated_at,
+        id, order_number, status, problem_description, diagnosis, created_at,
         devices:device_id(brand, model, serial_number),
         technicians:technician_id(full_name)
       `)
       .eq('customer_id', customer.id)
       .order('created_at', { ascending: false })
+
+    
 
     setOrders((data as unknown as WorkOrder[]) ?? [])
     setLoading(false)
@@ -95,7 +100,7 @@ export default function TakipPage() {
           </p>
         </div>
 
-        <form onSubmit={handleSearch} style={{ background: '#fff', borderRadius: '12px', padding: '24px', border: '1px solid #e5e7eb', marginBottom: '24px' }}>
+        <div style={{ background: '#fff', borderRadius: '12px', padding: '24px', border: '1px solid #e5e7eb', marginBottom: '24px' }}>
           <label style={{ display: 'block', fontSize: '13px', color: '#374151', fontWeight: '500', marginBottom: '8px' }}>
             Telefon Numarası
           </label>
@@ -103,19 +108,20 @@ export default function TakipPage() {
             <input
               value={phone}
               onChange={e => setPhone(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && handleSearch()}
               placeholder="0532 123 4567"
               style={{ flex: 1, border: '1px solid #d1d5db', borderRadius: '8px', padding: '10px 14px', fontSize: '15px', outline: 'none' }}
-              required
             />
             <button
-              type="submit"
+              type="button"
+              onClick={() => handleSearch()}
               disabled={loading}
               style={{ background: '#dc2626', color: '#fff', border: 'none', borderRadius: '8px', padding: '10px 20px', fontSize: '14px', fontWeight: '600', cursor: 'pointer', opacity: loading ? 0.7 : 1 }}
             >
               {loading ? 'Aranıyor...' : 'Sorgula'}
             </button>
           </div>
-        </form>
+        </div>
 
         {error && (
           <div style={{ background: '#fee2e2', border: '1px solid #fca5a5', borderRadius: '10px', padding: '16px', marginBottom: '16px' }}>
