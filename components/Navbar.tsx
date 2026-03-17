@@ -23,6 +23,7 @@ export default function Navbar() {
   { href: '/dashboard/customers', label: 'Müşteriler' },
   { href: '/dashboard/technicians', label: 'Teknisyenler' },
   { href: '/dashboard/parts', label: 'Stok' },
+  { href: '/dashboard/export', label: 'Dışa Aktar' },
 ]
 
   return (

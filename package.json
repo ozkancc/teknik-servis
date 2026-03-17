@@ -16,7 +16,8 @@
     "next": "16.1.6",
     "react": "19.2.3",
     "react-dom": "19.2.3",
-    "resend": "^6.9.4"
+    "resend": "^6.9.4",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@tailwindcss/forms": "^0.5.11",
