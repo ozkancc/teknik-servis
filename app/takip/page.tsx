@@ -44,56 +44,39 @@ export default function TakipPage() {
     setError('')
     setSearched(false)
 
-    // Telefonu normalize et — sadece rakamları al
-    const normalized = phone.replace(/\D/g, '')
+    const digits = phone.replace(/\D/g, '').slice(-10)
 
-    // Farklı formatları dene
-    const variants = [
-      normalized,                          // 05079584845
-      normalized.replace(/^0/, ''),        // 5079584845
-      '0' + normalized.replace(/^0/, ''),  // 05079584845
-      normalized.slice(-10),               // son 10 hane
-      // Boşluklu formatlar
-      phone.trim(),
-      phone.replace(/\s/g, ''),
-    ]
+    const { data: customers } = await supabase
+      .from('customers')
+      .select('id, full_name')
+      .ilike('phone', `%${digits}%`)
+      .limit(1)
 
-    let customer = null
-
-    for (const variant of variants) {
-      const { data } = await supabase
-        .from('customers')
-        .select('id, full_name')
-        .eq('phone', variant)
-        .limit(1)
-
-      if (data && data.length > 0) {
-        customer = data[0]
-        break
-      }
-    }
-
-    // Hâlâ bulunamadıysa ILIKE ile dene
-    if (!customer) {
-      const digits = normalized.slice(-10)
-      const { data } = await supabase
-        .from('customers')
-        .select('id, full_name')
-        .ilike('phone', `%${digits}%`)
-        .limit(1)
-
-      if (data && data.length > 0) {
-        customer = data[0]
-      }
-    }
-
-    if (!customer) {
+    if (!customers || customers.length === 0) {
       setError('Bu telefon numarasına kayıtlı cihaz bulunamadı.')
       setOrders([])
       setLoading(false)
       setSearched(true)
       return
     }
+
+    const customer = customers[0]
+    setCustomerName(customer.full_name)
+
+    const { data } = await supabase
+      .from('work_orders')
+      .select(`
+        id, order_number, status, problem_description, diagnosis, created_at, updated_at,
+        devices:device_id(brand, model, serial_number),
+        technicians:technician_id(full_name)
+      `)
+      .eq('customer_id', customer.id)
+      .order('created_at', { ascending: false })
+
+    setOrders((data as unknown as WorkOrder[]) ?? [])
+    setLoading(false)
+    setSearched(true)
+  }
 
     setCustomerName(customer.full_name)
 
