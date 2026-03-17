@@ -333,7 +333,14 @@ export default function WorkOrderDetailPage() {
     doc.line(10, pageH - 16, 200, pageH - 16)
     doc.setTextColor(150, 150, 150)
     doc.setFontSize(8)
-    doc.text('Gen Teknik Servis · Bu belge bilgisayar ortaminda olusturulmustur.', 105, pageH - 8, { align: 'center' })
+    const firmaAdi = process.env.NEXT_PUBLIC_FIRMA_ADI ?? 'Teknik Servis'
+const firmaAdres = process.env.NEXT_PUBLIC_FIRMA_ADRES ?? ''
+const firmaTel = process.env.NEXT_PUBLIC_FIRMA_TELEFON ?? ''
+const firmaEmail = process.env.NEXT_PUBLIC_FIRMA_EMAIL ?? ''
+const firmaWeb = process.env.NEXT_PUBLIC_FIRMA_WEB ?? ''
+
+doc.text(`${firmaAdi} · ${firmaAdres} · Tel: ${firmaTel}`, 105, pageH - 12, { align: 'center' })
+doc.text(`${firmaEmail} · ${firmaWeb}`, 105, pageH - 6, { align: 'center' })
 
     doc.save(`is-emri-${order.order_number}.pdf`)
   }

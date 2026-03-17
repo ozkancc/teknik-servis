@@ -35,6 +35,12 @@ export default function TakipPage() {
   const [searched, setSearched] = useState(false)
   const [error, setError] = useState('')
 
+  const firmaAdi = process.env.NEXT_PUBLIC_FIRMA_ADI ?? 'Teknik Servis'
+  const firmaAdres = process.env.NEXT_PUBLIC_FIRMA_ADRES ?? ''
+  const firmaTel = process.env.NEXT_PUBLIC_FIRMA_TELEFON ?? ''
+  const firmaEmail = process.env.NEXT_PUBLIC_FIRMA_EMAIL ?? ''
+  const firmaWeb = process.env.NEXT_PUBLIC_FIRMA_WEB ?? ''
+
   async function handleSearch(e?: React.FormEvent) {
     if (e) e.preventDefault()
     if (!phone) return
@@ -44,15 +50,12 @@ export default function TakipPage() {
 
     const supabase = createClient()
     const digits = phone.replace(/\D/g, '').slice(-10)
-    
 
-    const { data: customers, error: custError } = await supabase
+    const { data: customers } = await supabase
       .from('customers')
       .select('id, full_name')
       .ilike('phone', `%${digits}%`)
       .limit(1)
-
-    
 
     if (!customers || customers.length === 0) {
       setError('Bu telefon numarasına kayıtlı cihaz bulunamadı.')
@@ -65,7 +68,7 @@ export default function TakipPage() {
     const customer = customers[0]
     setCustomerName(customer.full_name)
 
-    const { data, error: ordErr } = await supabase
+    const { data } = await supabase
       .from('work_orders')
       .select(`
         id, order_number, status, problem_description, diagnosis, created_at,
@@ -75,8 +78,6 @@ export default function TakipPage() {
       .eq('customer_id', customer.id)
       .order('created_at', { ascending: false })
 
-    
-
     setOrders((data as unknown as WorkOrder[]) ?? [])
     setLoading(false)
     setSearched(true)
@@ -85,8 +86,15 @@ export default function TakipPage() {
   return (
     <div style={{ minHeight: '100vh', background: '#f8f8f8', fontFamily: 'Arial, sans-serif' }}>
 
-      <div style={{ background: '#fff', borderBottom: '1px solid #e5e7eb', padding: '16px 24px' }}>
-        <Image src="/logo.png" alt="Gen Teknik Servis" width={120} height={40} style={{ objectFit: 'contain' }} />
+      {/* Header */}
+      <div style={{ background: '#fff', borderBottom: '1px solid #e5e7eb', padding: '16px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
+        <Image src="/logo.png" alt={firmaAdi} width={120} height={40} style={{ objectFit: 'contain' }} />
+        <div style={{ textAlign: 'right' }}>
+          <p style={{ margin: 0, fontSize: '13px', fontWeight: '600', color: '#111' }}>{firmaAdi}</p>
+          <p style={{ margin: '2px 0 0', fontSize: '12px', color: '#6b7280' }}>{firmaAdres}</p>
+          <p style={{ margin: '2px 0 0', fontSize: '12px', color: '#6b7280' }}>{firmaTel} · {firmaEmail}</p>
+          <p style={{ margin: '2px 0 0', fontSize: '12px', color: '#dc2626' }}>{firmaWeb}</p>
+        </div>
       </div>
 
       <div style={{ maxWidth: '640px', margin: '0 auto', padding: '32px 16px' }}>
@@ -207,9 +215,14 @@ export default function TakipPage() {
           </div>
         )}
 
-        <div style={{ textAlign: 'center', marginTop: '40px' }}>
-          <p style={{ color: '#9ca3af', fontSize: '12px' }}>Gen Teknik Servis · Bilgisayar - Telefon - Tablet</p>
+        {/* Footer */}
+        <div style={{ textAlign: 'center', marginTop: '40px', paddingTop: '20px', borderTop: '1px solid #e5e7eb' }}>
+          <p style={{ color: '#6b7280', fontSize: '13px', fontWeight: '600', margin: '0 0 4px' }}>{firmaAdi}</p>
+          <p style={{ color: '#9ca3af', fontSize: '12px', margin: '0 0 2px' }}>{firmaAdres}</p>
+          <p style={{ color: '#9ca3af', fontSize: '12px', margin: '0 0 2px' }}>{firmaTel} · {firmaEmail}</p>
+          <p style={{ color: '#dc2626', fontSize: '12px', margin: 0 }}>{firmaWeb}</p>
         </div>
+
       </div>
     </div>
   )
