@@ -1,7 +1,6 @@
 'use client'
 
 import { useState } from 'react'
-import { createClient } from '@/lib/supabase'
 import Image from 'next/image'
 
 type WorkOrder = {
@@ -11,7 +10,6 @@ type WorkOrder = {
   problem_description: string
   diagnosis: string
   created_at: string
-  updated_at: string
   devices: { brand: string; model: string; serial_number: string } | null
   technicians: { full_name: string } | null
 }
@@ -35,7 +33,6 @@ export default function TakipPage() {
   const [loading, setLoading] = useState(false)
   const [searched, setSearched] = useState(false)
   const [error, setError] = useState('')
-  const supabase = createClient()
 
   async function handleSearch(e: React.FormEvent) {
     e.preventDefault()
@@ -44,15 +41,10 @@ export default function TakipPage() {
     setError('')
     setSearched(false)
 
-    const digits = phone.replace(/\D/g, '').slice(-10)
+    const res = await fetch(`/api/takip?phone=${encodeURIComponent(phone)}`)
+    const data = await res.json()
 
-    const { data: customers } = await supabase
-      .from('customers')
-      .select('id, full_name')
-      .ilike('phone', `%${digits}%`)
-      .limit(1)
-
-    if (!customers || customers.length === 0) {
+    if (!res.ok) {
       setError('Bu telefon numarasına kayıtlı cihaz bulunamadı.')
       setOrders([])
       setLoading(false)
@@ -60,20 +52,8 @@ export default function TakipPage() {
       return
     }
 
-    const customer = customers[0]
-    setCustomerName(customer.full_name)
-
-    const { data } = await supabase
-      .from('work_orders')
-      .select(`
-        id, order_number, status, problem_description, diagnosis, created_at, updated_at,
-        devices:device_id(brand, model, serial_number),
-        technicians:technician_id(full_name)
-      `)
-      .eq('customer_id', customer.id)
-      .order('created_at', { ascending: false })
-
-    setOrders((data as unknown as WorkOrder[]) ?? [])
+    setCustomerName(data.customer.full_name)
+    setOrders(data.orders ?? [])
     setLoading(false)
     setSearched(true)
   }
@@ -81,7 +61,7 @@ export default function TakipPage() {
   return (
     <div style={{ minHeight: '100vh', background: '#f8f8f8', fontFamily: 'Arial, sans-serif' }}>
 
-      <div style={{ background: '#fff', borderBottom: '1px solid #e5e7eb', padding: '16px 24px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+      <div style={{ background: '#fff', borderBottom: '1px solid #e5e7eb', padding: '16px 24px' }}>
         <Image src="/logo.png" alt="Gen Teknik Servis" width={120} height={40} style={{ objectFit: 'contain' }} />
       </div>
 
@@ -105,30 +85,13 @@ export default function TakipPage() {
               value={phone}
               onChange={e => setPhone(e.target.value)}
               placeholder="0532 123 4567"
-              style={{
-                flex: 1,
-                border: '1px solid #d1d5db',
-                borderRadius: '8px',
-                padding: '10px 14px',
-                fontSize: '15px',
-                outline: 'none',
-              }}
+              style={{ flex: 1, border: '1px solid #d1d5db', borderRadius: '8px', padding: '10px 14px', fontSize: '15px', outline: 'none' }}
               required
             />
             <button
               type="submit"
               disabled={loading}
-              style={{
-                background: '#dc2626',
-                color: '#fff',
-                border: 'none',
-                borderRadius: '8px',
-                padding: '10px 20px',
-                fontSize: '14px',
-                fontWeight: '600',
-                cursor: 'pointer',
-                opacity: loading ? 0.7 : 1,
-              }}
+              style={{ background: '#dc2626', color: '#fff', border: 'none', borderRadius: '8px', padding: '10px 20px', fontSize: '14px', fontWeight: '600', cursor: 'pointer', opacity: loading ? 0.7 : 1 }}
             >
               {loading ? 'Aranıyor...' : 'Sorgula'}
             </button>
@@ -158,22 +121,15 @@ export default function TakipPage() {
                     <div>
                       <span style={{ color: '#9ca3af', fontSize: '12px', fontFamily: 'monospace' }}>#{o.order_number}</span>
                       <p style={{ margin: '2px 0 0', fontWeight: '600', fontSize: '15px', color: '#111' }}>
-                        {o.devices ? `${o.devices.brand} ${o.devices.model}` : 'Cihaz bilgisi yok'}
+                        {o.devices ? `${(o.devices as any).brand} ${(o.devices as any).model}` : 'Cihaz bilgisi yok'}
                       </p>
-                      {o.devices?.serial_number && (
+                      {(o.devices as any)?.serial_number && (
                         <p style={{ margin: '2px 0 0', color: '#9ca3af', fontSize: '12px', fontFamily: 'monospace' }}>
-                          Seri: {o.devices.serial_number}
+                          Seri: {(o.devices as any).serial_number}
                         </p>
                       )}
                     </div>
-                    <span style={{
-                      background: st?.bg,
-                      color: st?.color,
-                      padding: '4px 12px',
-                      borderRadius: '20px',
-                      fontSize: '12px',
-                      fontWeight: '600',
-                    }}>
+                    <span style={{ background: st?.bg, color: st?.color, padding: '4px 12px', borderRadius: '20px', fontSize: '12px', fontWeight: '600' }}>
                       {st?.label}
                     </span>
                   </div>
@@ -183,21 +139,14 @@ export default function TakipPage() {
                       <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                         {STEPS.slice(0, 5).map((step, i) => (
                           <div key={step} style={{ display: 'flex', alignItems: 'center', flex: i < 4 ? 1 : 'none' }}>
-                            <div style={{
-                              width: '20px', height: '20px', borderRadius: '50%',
-                              background: i <= stepIndex ? '#dc2626' : '#e5e7eb',
-                              display: 'flex', alignItems: 'center', justifyContent: 'center',
-                              flexShrink: 0,
-                            }}>
+                            <div style={{ width: '20px', height: '20px', borderRadius: '50%', background: i <= stepIndex ? '#dc2626' : '#e5e7eb', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                               {i <= stepIndex && (
                                 <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
                                   <path d="M2 5l2.5 2.5L8 3" stroke="#fff" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
                                 </svg>
                               )}
                             </div>
-                            {i < 4 && (
-                              <div style={{ flex: 1, height: '2px', background: i < stepIndex ? '#dc2626' : '#e5e7eb', margin: '0 2px' }} />
-                            )}
+                            {i < 4 && <div style={{ flex: 1, height: '2px', background: i < stepIndex ? '#dc2626' : '#e5e7eb', margin: '0 2px' }} />}
                           </div>
                         ))}
                       </div>
@@ -213,22 +162,18 @@ export default function TakipPage() {
 
                   <div style={{ padding: '16px 20px' }}>
                     <div style={{ marginBottom: '8px' }}>
-                      <span style={{ color: '#9ca3af', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Sorun</span>
+                      <span style={{ color: '#9ca3af', fontSize: '11px', textTransform: 'uppercase' as const, letterSpacing: '0.5px' }}>Sorun</span>
                       <p style={{ margin: '2px 0 0', color: '#374151', fontSize: '13px' }}>{o.problem_description}</p>
                     </div>
                     {o.diagnosis && (
                       <div style={{ marginBottom: '8px' }}>
-                        <span style={{ color: '#9ca3af', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Teşhis</span>
+                        <span style={{ color: '#9ca3af', fontSize: '11px', textTransform: 'uppercase' as const, letterSpacing: '0.5px' }}>Teşhis</span>
                         <p style={{ margin: '2px 0 0', color: '#374151', fontSize: '13px' }}>{o.diagnosis}</p>
                       </div>
                     )}
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '12px', paddingTop: '12px', borderTop: '1px solid #f3f4f6' }}>
-                      <span style={{ color: '#9ca3af', fontSize: '12px' }}>
-                        Teknisyen: {o.technicians?.full_name ?? '—'}
-                      </span>
-                      <span style={{ color: '#9ca3af', fontSize: '12px' }}>
-                        {new Date(o.created_at).toLocaleDateString('tr-TR')}
-                      </span>
+                      <span style={{ color: '#9ca3af', fontSize: '12px' }}>Teknisyen: {(o.technicians as any)?.full_name ?? '—'}</span>
+                      <span style={{ color: '#9ca3af', fontSize: '12px' }}>{new Date(o.created_at).toLocaleDateString('tr-TR')}</span>
                     </div>
                   </div>
                 </div>
