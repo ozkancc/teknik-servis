@@ -78,34 +78,15 @@ export default function TakipPage() {
     setSearched(true)
   }
 
-    setCustomerName(customer.full_name)
-
-    const { data } = await supabase
-      .from('work_orders')
-      .select(`
-        id, order_number, status, problem_description, diagnosis, created_at, updated_at,
-        devices:device_id(brand, model, serial_number),
-        technicians:technician_id(full_name)
-      `)
-      .eq('customer_id', customer.id)
-      .order('created_at', { ascending: false })
-
-    setOrders((data as unknown as WorkOrder[]) ?? [])
-    setLoading(false)
-    setSearched(true)
-  }
-
   return (
     <div style={{ minHeight: '100vh', background: '#f8f8f8', fontFamily: 'Arial, sans-serif' }}>
 
-      {/* Header */}
       <div style={{ background: '#fff', borderBottom: '1px solid #e5e7eb', padding: '16px 24px', display: 'flex', alignItems: 'center', gap: '12px' }}>
         <Image src="/logo.png" alt="Gen Teknik Servis" width={120} height={40} style={{ objectFit: 'contain' }} />
       </div>
 
       <div style={{ maxWidth: '640px', margin: '0 auto', padding: '32px 16px' }}>
 
-        {/* Başlık */}
         <div style={{ textAlign: 'center', marginBottom: '32px' }}>
           <h1 style={{ fontSize: '22px', fontWeight: 'bold', color: '#111', margin: '0 0 8px' }}>
             Cihaz Durumu Sorgulama
@@ -115,7 +96,6 @@ export default function TakipPage() {
           </p>
         </div>
 
-        {/* Arama formu */}
         <form onSubmit={handleSearch} style={{ background: '#fff', borderRadius: '12px', padding: '24px', border: '1px solid #e5e7eb', marginBottom: '24px' }}>
           <label style={{ display: 'block', fontSize: '13px', color: '#374151', fontWeight: '500', marginBottom: '8px' }}>
             Telefon Numarası
@@ -155,14 +135,12 @@ export default function TakipPage() {
           </div>
         </form>
 
-        {/* Hata */}
         {error && (
           <div style={{ background: '#fee2e2', border: '1px solid #fca5a5', borderRadius: '10px', padding: '16px', marginBottom: '16px' }}>
             <p style={{ color: '#dc2626', fontSize: '14px', margin: 0 }}>{error}</p>
           </div>
         )}
 
-        {/* Sonuçlar */}
         {searched && orders.length > 0 && (
           <div>
             <p style={{ color: '#374151', fontSize: '14px', marginBottom: '16px' }}>
@@ -176,7 +154,6 @@ export default function TakipPage() {
               return (
                 <div key={o.id} style={{ background: '#fff', borderRadius: '12px', border: '1px solid #e5e7eb', marginBottom: '16px', overflow: 'hidden' }}>
 
-                  {/* Üst kısım */}
                   <div style={{ padding: '16px 20px', borderBottom: '1px solid #f3f4f6', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                     <div>
                       <span style={{ color: '#9ca3af', fontSize: '12px', fontFamily: 'monospace' }}>#{o.order_number}</span>
@@ -201,7 +178,6 @@ export default function TakipPage() {
                     </span>
                   </div>
 
-                  {/* İlerleme çubuğu */}
                   {o.status !== 'iptal' && (
                     <div style={{ padding: '16px 20px', borderBottom: '1px solid #f3f4f6' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
@@ -235,7 +211,6 @@ export default function TakipPage() {
                     </div>
                   )}
 
-                  {/* Detaylar */}
                   <div style={{ padding: '16px 20px' }}>
                     <div style={{ marginBottom: '8px' }}>
                       <span style={{ color: '#9ca3af', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Sorun</span>
@@ -262,7 +237,6 @@ export default function TakipPage() {
           </div>
         )}
 
-        {/* Footer */}
         <div style={{ textAlign: 'center', marginTop: '40px' }}>
           <p style={{ color: '#9ca3af', fontSize: '12px' }}>Gen Teknik Servis · Bilgisayar - Telefon - Tablet</p>
         </div>
