@@ -49,6 +49,9 @@ export default function WorkOrderDetailPage() {
   const [status, setStatus] = useState('')
   const [diagnosis, setDiagnosis] = useState('')
   const [parts, setParts] = useState<{id: string; name: string; list_price: number}[]>([])
+  const [photos, setPhotos] = useState<string[]>([])
+  const [uploadingPhoto, setUploadingPhoto] = useState(false)
+  const [lightbox, setLightbox] = useState<string | null>(null)
 
   const [newDesc, setNewDesc] = useState('')
   const [newQty, setNewQty] = useState('1')
@@ -60,6 +63,7 @@ export default function WorkOrderDetailPage() {
 
   useEffect(() => {
     fetchOrder()
+    fetchPhotos()
     supabase.from('parts').select('id, name, list_price').eq('is_active', true).order('name').then(({ data }) => setParts(data ?? []))
   }, [])
 
@@ -84,6 +88,45 @@ export default function WorkOrderDetailPage() {
       setDiagnosis(wo.diagnosis ?? '')
     }
     setLoading(false)
+  }
+
+  async function fetchPhotos() {
+    const { data } = await supabase.storage
+      .from('work-order-photos')
+      .list(`${id}`)
+    if (data) {
+      const urls = data.map(file => {
+        const { data: urlData } = supabase.storage
+          .from('work-order-photos')
+          .getPublicUrl(`${id}/${file.name}`)
+        return urlData.publicUrl
+      })
+      setPhotos(urls)
+    }
+  }
+
+  async function uploadPhoto(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = e.target.files
+    if (!files || files.length === 0) return
+    setUploadingPhoto(true)
+
+    for (const file of Array.from(files)) {
+      const ext = file.name.split('.').pop()
+      const fileName = `${Date.now()}.${ext}`
+      await supabase.storage
+        .from('work-order-photos')
+        .upload(`${id}/${fileName}`, file)
+    }
+
+    await fetchPhotos()
+    setUploadingPhoto(false)
+    e.target.value = ''
+  }
+
+  async function deletePhoto(url: string) {
+    const path = url.split('/work-order-photos/')[1]
+    await supabase.storage.from('work-order-photos').remove([path])
+    await fetchPhotos()
   }
 
   async function addItem() {
@@ -155,9 +198,9 @@ export default function WorkOrderDetailPage() {
     const takipLink = `${window.location.origin}/takip`
 
     const mesajlar: Record<string, string> = {
-      olusturuldu:  `Merhaba ${order.customers?.full_name}, is emiriniz olusturuldu. Is emri no: #${order.order_number}. Cihaziniz (${cihaz}) en kisa surede incelenecektir. Takip: ${takipLink}`,
-      tamamlandi:   `Merhaba ${order.customers?.full_name}, ${cihaz} cihazinizin tamiri tamamlandi! Is emri no: #${order.order_number}. Teslim almak icin bizi arayabilirsiniz. Takip: ${takipLink}`,
-      teslim_edildi:`Merhaba ${order.customers?.full_name}, ${cihaz} cihaziniz teslim edilmistir. Bizi tercih ettiginiz icin tesekkur ederiz. Iyi gunler dileriz!`,
+      olusturuldu:   `Merhaba ${order.customers?.full_name}, is emiriniz olusturuldu. Is emri no: #${order.order_number}. Cihaziniz (${cihaz}) en kisa surede incelenecektir. Takip: ${takipLink}`,
+      tamamlandi:    `Merhaba ${order.customers?.full_name}, ${cihaz} cihazinizin tamiri tamamlandi! Is emri no: #${order.order_number}. Teslim almak icin bizi arayabilirsiniz. Takip: ${takipLink}`,
+      teslim_edildi: `Merhaba ${order.customers?.full_name}, ${cihaz} cihaziniz teslim edilmistir. Bizi tercih ettiginiz icin tesekkur ederiz. Iyi gunler dileriz!`,
     }
 
     sendWhatsApp(mesajlar[tip])
@@ -190,7 +233,6 @@ export default function WorkOrderDetailPage() {
     const doc = new jsPDF()
 
     doc.addImage(logoData, 'PNG', 10, 8, 80, 38)
-
     doc.setTextColor(...koyu)
     doc.setFontSize(16)
     doc.setFont('helvetica', 'bold')
@@ -200,7 +242,6 @@ export default function WorkOrderDetailPage() {
     doc.setTextColor(100, 100, 100)
     doc.text(`Tarih: ${new Date(order.created_at).toLocaleDateString('tr-TR')}`, 196, 24, { align: 'right' })
     doc.text(`Durum: ${STATUS[order.status]?.label ?? order.status}`, 196, 31, { align: 'right' })
-
     doc.setDrawColor(220, 38, 38)
     doc.setLineWidth(0.8)
     doc.line(10, 50, 200, 50)
@@ -381,6 +422,47 @@ export default function WorkOrderDetailPage() {
             <p className="text-[#aaa] text-sm">{order.problem_description}</p>
           </div>
 
+          {/* Fotoğraflar */}
+          <div className="bg-[#1a1a1a] rounded-xl border border-white/[0.06] p-4">
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-[#444] text-xs uppercase tracking-wide">Fotoğraflar</p>
+              <label className="bg-blue-600 hover:bg-blue-500 text-white text-xs px-3 py-1.5 rounded-lg transition cursor-pointer">
+                {uploadingPhoto ? 'Yükleniyor...' : '+ Ekle'}
+                <input
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  className="hidden"
+                  onChange={uploadPhoto}
+                  disabled={uploadingPhoto}
+                />
+              </label>
+            </div>
+
+            {photos.length === 0 ? (
+              <p className="text-[#333] text-xs text-center py-4">Henüz fotoğraf yok</p>
+            ) : (
+              <div className="grid grid-cols-3 gap-2">
+                {photos.map((url, i) => (
+                  <div key={i} className="relative group">
+                    <img
+                      src={url}
+                      alt={`foto-${i}`}
+                      className="w-full h-20 object-cover rounded-lg cursor-pointer"
+                      onClick={() => setLightbox(url)}
+                    />
+                    <button
+                      onClick={() => deletePhoto(url)}
+                      className="absolute top-1 right-1 bg-black/70 text-red-400 text-xs w-5 h-5 rounded-full items-center justify-center hidden group-hover:flex"
+                    >
+                      x
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
           {/* Durum güncelle */}
           <div className="bg-[#1a1a1a] rounded-xl border border-white/[0.06] p-4 space-y-3">
             <p className="text-[#444] text-xs uppercase tracking-wide">Durum Güncelle</p>
@@ -488,6 +570,22 @@ export default function WorkOrderDetailPage() {
           </div>
         </div>
       </div>
+
+      {/* Lightbox */}
+      {lightbox && (
+        <div
+          className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 p-4"
+          onClick={() => setLightbox(null)}
+        >
+          <img src={lightbox} alt="foto" className="max-w-full max-h-full rounded-xl object-contain" />
+          <button
+            className="absolute top-4 right-4 text-white text-2xl"
+            onClick={() => setLightbox(null)}
+          >
+            ✕
+          </button>
+        </div>
+      )}
     </div>
   )
 }
