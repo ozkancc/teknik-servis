@@ -49,6 +49,7 @@ export default function WorkOrderDetailPage() {
   const [status, setStatus] = useState('')
   const [diagnosis, setDiagnosis] = useState('')
   const [parts, setParts] = useState<{id: string; name: string; list_price: number}[]>([])
+
   const [newDesc, setNewDesc] = useState('')
   const [newQty, setNewQty] = useState('1')
   const [newPrice, setNewPrice] = useState('')
@@ -58,18 +59,18 @@ export default function WorkOrderDetailPage() {
   const inputCls = "w-full bg-[#111] border border-white/[0.08] rounded-lg px-3 py-2 text-sm text-white placeholder-[#444] focus:outline-none focus:ring-1 focus:ring-blue-500"
 
   useEffect(() => {
-  fetchOrder()
-  supabase.from('parts').select('id, name, list_price').eq('is_active', true).order('name').then(({ data }) => setParts(data ?? []))
-}, [])
+    fetchOrder()
+    supabase.from('parts').select('id, name, list_price').eq('is_active', true).order('name').then(({ data }) => setParts(data ?? []))
+  }, [])
 
   async function fetchOrder() {
     const { data } = await supabase
       .from('work_orders')
       .select(`
         id, order_number, status, problem_description, diagnosis, created_at,
-        customers(full_name, phone, email, address),
-        devices(brand, model, serial_number),
-        technicians(full_name),
+        customers:customer_id(full_name, phone, email, address),
+        devices:device_id(brand, model, serial_number),
+        technicians:technician_id(full_name),
         work_order_items(id, description, quantity, unit_price, discount_percent)
       `)
       .eq('id', id)
@@ -136,6 +137,32 @@ export default function WorkOrderDetailPage() {
 
     alert('Kaydedildi!')
   }
+
+  function sendWhatsApp(message: string) {
+    if (!order?.customers?.phone) {
+      alert('Müşteri telefon numarası bulunamadı!')
+      return
+    }
+    const phone = order.customers.phone.replace(/\D/g, '')
+    const finalPhone = phone.startsWith('0') ? '90' + phone.slice(1) : '90' + phone
+    const url = `https://wa.me/${finalPhone}?text=${encodeURIComponent(message)}`
+    window.open(url, '_blank')
+  }
+
+  function whatsAppMesaj(tip: string) {
+    if (!order) return
+    const cihaz = order.devices ? `${order.devices.brand} ${order.devices.model}` : 'cihazınız'
+    const takipLink = `${window.location.origin}/takip`
+
+    const mesajlar: Record<string, string> = {
+      olusturuldu:  `Merhaba ${order.customers?.full_name}, is emiriniz olusturuldu. Is emri no: #${order.order_number}. Cihaziniz (${cihaz}) en kisa surede incelenecektir. Takip: ${takipLink}`,
+      tamamlandi:   `Merhaba ${order.customers?.full_name}, ${cihaz} cihazinizin tamiri tamamlandi! Is emri no: #${order.order_number}. Teslim almak icin bizi arayabilirsiniz. Takip: ${takipLink}`,
+      teslim_edildi:`Merhaba ${order.customers?.full_name}, ${cihaz} cihaziniz teslim edilmistir. Bizi tercih ettiginiz icin tesekkur ederiz. Iyi gunler dileriz!`,
+    }
+
+    sendWhatsApp(mesajlar[tip])
+  }
+
   function calcTotal() {
     return items.reduce((sum, item) => {
       const line = item.quantity * item.unit_price
@@ -303,14 +330,44 @@ export default function WorkOrderDetailPage() {
       <div className="px-4 sm:px-6 py-6 max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-4">
 
         <div className="space-y-4">
+
+          {/* Müşteri */}
           <div className="bg-[#1a1a1a] rounded-xl border border-white/[0.06] p-4">
             <p className="text-[#444] text-xs uppercase tracking-wide mb-3">Müşteri</p>
             <p className="text-white font-medium text-sm">{order.customers?.full_name}</p>
             <p className="text-[#666] text-xs mt-1">{order.customers?.phone}</p>
             <p className="text-[#555] text-xs">{order.customers?.email}</p>
             <p className="text-[#555] text-xs">{order.customers?.address}</p>
+
+            {order.customers?.phone && (
+              <div className="mt-3 space-y-1.5">
+                <p className="text-[#444] text-[10px] uppercase tracking-wide mb-2">WhatsApp Gönder</p>
+                <button
+                  onClick={() => whatsAppMesaj('olusturuldu')}
+                  className="w-full text-left px-3 py-1.5 rounded-lg text-xs transition border"
+                  style={{ background: 'rgba(37,211,102,0.08)', color: '#25D366', borderColor: 'rgba(37,211,102,0.2)' }}
+                >
+                  İş emri oluşturuldu
+                </button>
+                <button
+                  onClick={() => whatsAppMesaj('tamamlandi')}
+                  className="w-full text-left px-3 py-1.5 rounded-lg text-xs transition border"
+                  style={{ background: 'rgba(37,211,102,0.08)', color: '#25D366', borderColor: 'rgba(37,211,102,0.2)' }}
+                >
+                  Tamir tamamlandı
+                </button>
+                <button
+                  onClick={() => whatsAppMesaj('teslim_edildi')}
+                  className="w-full text-left px-3 py-1.5 rounded-lg text-xs transition border"
+                  style={{ background: 'rgba(37,211,102,0.08)', color: '#25D366', borderColor: 'rgba(37,211,102,0.2)' }}
+                >
+                  Cihaz teslim edildi
+                </button>
+              </div>
+            )}
           </div>
 
+          {/* Cihaz */}
           <div className="bg-[#1a1a1a] rounded-xl border border-white/[0.06] p-4">
             <p className="text-[#444] text-xs uppercase tracking-wide mb-3">Cihaz</p>
             <p className="text-white font-medium text-sm">{order.devices?.brand} {order.devices?.model}</p>
@@ -318,11 +375,13 @@ export default function WorkOrderDetailPage() {
             <p className="text-[#555] text-xs">Teknisyen: {order.technicians?.full_name ?? '—'}</p>
           </div>
 
+          {/* Sorun */}
           <div className="bg-[#1a1a1a] rounded-xl border border-white/[0.06] p-4">
             <p className="text-[#444] text-xs uppercase tracking-wide mb-2">Sorun</p>
             <p className="text-[#aaa] text-sm">{order.problem_description}</p>
           </div>
 
+          {/* Durum güncelle */}
           <div className="bg-[#1a1a1a] rounded-xl border border-white/[0.06] p-4 space-y-3">
             <p className="text-[#444] text-xs uppercase tracking-wide">Durum Güncelle</p>
             <select value={status} onChange={e => setStatus(e.target.value)} className={inputCls}>
@@ -344,44 +403,45 @@ export default function WorkOrderDetailPage() {
           </div>
         </div>
 
+        {/* Sağ kolon */}
         <div className="lg:col-span-2">
           <div className="bg-[#1a1a1a] rounded-xl border border-white/[0.06] p-4">
             <p className="text-[#444] text-xs uppercase tracking-wide mb-4">Maliyet Kalemleri</p>
 
-           <div className="space-y-2 mb-4">
-  <div className="flex gap-2">
-    <select
-      onChange={e => {
-        const part = parts.find(p => p.id === e.target.value)
-        if (part) { setNewDesc(part.name); setNewPrice(part.list_price.toString()) }
-      }}
-      className={inputCls + ' flex-1'}
-      defaultValue=""
-    >
-      <option value="">Stoktan seç...</option>
-      {parts.map(p => (
-        <option key={p.id} value={p.id}>{p.name} — {p.list_price.toFixed(2)} TL</option>
-      ))}
-    </select>
-  </div>
-  <div className="grid grid-cols-12 gap-2">
-    <input value={newDesc} onChange={e => setNewDesc(e.target.value)}
-      placeholder="Açıklama" className={inputCls + ' col-span-4'} />
-    <input value={newQty} onChange={e => setNewQty(e.target.value)}
-      placeholder="Adet" type="number" min="0.01" step="0.01"
-      className={inputCls + ' col-span-2'} />
-    <input value={newPrice} onChange={e => setNewPrice(e.target.value)}
-      placeholder="Fiyat" type="number" min="0" step="0.01"
-      className={inputCls + ' col-span-3'} />
-    <input value={newDiscount} onChange={e => setNewDiscount(e.target.value)}
-      placeholder="İndirim%" type="number" min="0" max="100"
-      className={inputCls + ' col-span-2'} />
-    <button onClick={addItem} disabled={saving}
-      className="col-span-1 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-sm transition disabled:opacity-50">
-      +
-    </button>
-  </div>
-</div>
+            <div className="space-y-2 mb-4">
+              <div className="flex gap-2">
+                <select
+                  onChange={e => {
+                    const part = parts.find(p => p.id === e.target.value)
+                    if (part) { setNewDesc(part.name); setNewPrice(part.list_price.toString()) }
+                  }}
+                  className={inputCls + ' flex-1'}
+                  defaultValue=""
+                >
+                  <option value="">Stoktan seç...</option>
+                  {parts.map(p => (
+                    <option key={p.id} value={p.id}>{p.name} — {p.list_price.toFixed(2)} TL</option>
+                  ))}
+                </select>
+              </div>
+              <div className="grid grid-cols-12 gap-2">
+                <input value={newDesc} onChange={e => setNewDesc(e.target.value)}
+                  placeholder="Açıklama" className={inputCls + ' col-span-4'} />
+                <input value={newQty} onChange={e => setNewQty(e.target.value)}
+                  placeholder="Adet" type="number" min="0.01" step="0.01"
+                  className={inputCls + ' col-span-2'} />
+                <input value={newPrice} onChange={e => setNewPrice(e.target.value)}
+                  placeholder="Fiyat" type="number" min="0" step="0.01"
+                  className={inputCls + ' col-span-3'} />
+                <input value={newDiscount} onChange={e => setNewDiscount(e.target.value)}
+                  placeholder="İndirim%" type="number" min="0" max="100"
+                  className={inputCls + ' col-span-2'} />
+                <button onClick={addItem} disabled={saving}
+                  className="col-span-1 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-sm transition disabled:opacity-50">
+                  +
+                </button>
+              </div>
+            </div>
 
             {items.length === 0 ? (
               <p className="text-[#444] text-xs text-center py-6">Henüz kalem eklenmedi</p>
