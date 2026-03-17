@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import Image from 'next/image'
+import { createClient } from '@/lib/supabase'
 
 type WorkOrder = {
   id: string
@@ -41,10 +42,16 @@ export default function TakipPage() {
     setError('')
     setSearched(false)
 
-    const res = await fetch(`/api/takip?phone=${encodeURIComponent(phone)}`)
-    const data = await res.json()
+    const supabase = createClient()
+    const digits = phone.replace(/\D/g, '').slice(-10)
 
-    if (!res.ok) {
+    const { data: customers } = await supabase
+      .from('customers')
+      .select('id, full_name')
+      .ilike('phone', `%${digits}%`)
+      .limit(1)
+
+    if (!customers || customers.length === 0) {
       setError('Bu telefon numarasına kayıtlı cihaz bulunamadı.')
       setOrders([])
       setLoading(false)
@@ -52,8 +59,20 @@ export default function TakipPage() {
       return
     }
 
-    setCustomerName(data.customer.full_name)
-    setOrders(data.orders ?? [])
+    const customer = customers[0]
+    setCustomerName(customer.full_name)
+
+    const { data } = await supabase
+      .from('work_orders')
+      .select(`
+        id, order_number, status, problem_description, diagnosis, created_at, updated_at,
+        devices:device_id(brand, model, serial_number),
+        technicians:technician_id(full_name)
+      `)
+      .eq('customer_id', customer.id)
+      .order('created_at', { ascending: false })
+
+    setOrders((data as unknown as WorkOrder[]) ?? [])
     setLoading(false)
     setSearched(true)
   }
@@ -121,11 +140,11 @@ export default function TakipPage() {
                     <div>
                       <span style={{ color: '#9ca3af', fontSize: '12px', fontFamily: 'monospace' }}>#{o.order_number}</span>
                       <p style={{ margin: '2px 0 0', fontWeight: '600', fontSize: '15px', color: '#111' }}>
-                        {o.devices ? `${(o.devices as any).brand} ${(o.devices as any).model}` : 'Cihaz bilgisi yok'}
+                        {o.devices ? `${o.devices.brand} ${o.devices.model}` : 'Cihaz bilgisi yok'}
                       </p>
-                      {(o.devices as any)?.serial_number && (
+                      {o.devices?.serial_number && (
                         <p style={{ margin: '2px 0 0', color: '#9ca3af', fontSize: '12px', fontFamily: 'monospace' }}>
-                          Seri: {(o.devices as any).serial_number}
+                          Seri: {o.devices.serial_number}
                         </p>
                       )}
                     </div>
@@ -172,7 +191,7 @@ export default function TakipPage() {
                       </div>
                     )}
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '12px', paddingTop: '12px', borderTop: '1px solid #f3f4f6' }}>
-                      <span style={{ color: '#9ca3af', fontSize: '12px' }}>Teknisyen: {(o.technicians as any)?.full_name ?? '—'}</span>
+                      <span style={{ color: '#9ca3af', fontSize: '12px' }}>Teknisyen: {o.technicians?.full_name ?? '—'}</span>
                       <span style={{ color: '#9ca3af', fontSize: '12px' }}>{new Date(o.created_at).toLocaleDateString('tr-TR')}</span>
                     </div>
                   </div>
