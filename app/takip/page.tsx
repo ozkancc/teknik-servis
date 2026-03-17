@@ -44,12 +44,50 @@ export default function TakipPage() {
     setError('')
     setSearched(false)
 
-    const { data: customers } = await supabase
-      .from('customers')
-      .select('id, full_name')
-      .eq('phone', phone.trim())
+    // Telefonu normalize et — sadece rakamları al
+    const normalized = phone.replace(/\D/g, '')
 
-    if (!customers || customers.length === 0) {
+    // Farklı formatları dene
+    const variants = [
+      normalized,                          // 05079584845
+      normalized.replace(/^0/, ''),        // 5079584845
+      '0' + normalized.replace(/^0/, ''),  // 05079584845
+      normalized.slice(-10),               // son 10 hane
+      // Boşluklu formatlar
+      phone.trim(),
+      phone.replace(/\s/g, ''),
+    ]
+
+    let customer = null
+
+    for (const variant of variants) {
+      const { data } = await supabase
+        .from('customers')
+        .select('id, full_name')
+        .eq('phone', variant)
+        .limit(1)
+
+      if (data && data.length > 0) {
+        customer = data[0]
+        break
+      }
+    }
+
+    // Hâlâ bulunamadıysa ILIKE ile dene
+    if (!customer) {
+      const digits = normalized.slice(-10)
+      const { data } = await supabase
+        .from('customers')
+        .select('id, full_name')
+        .ilike('phone', `%${digits}%`)
+        .limit(1)
+
+      if (data && data.length > 0) {
+        customer = data[0]
+      }
+    }
+
+    if (!customer) {
       setError('Bu telefon numarasına kayıtlı cihaz bulunamadı.')
       setOrders([])
       setLoading(false)
@@ -57,7 +95,6 @@ export default function TakipPage() {
       return
     }
 
-    const customer = customers[0]
     setCustomerName(customer.full_name)
 
     const { data } = await supabase
