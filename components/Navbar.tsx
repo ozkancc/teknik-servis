@@ -34,7 +34,9 @@ export default function Navbar() {
     <nav className={`${isDark ? 'bg-[#1a1a1a] border-white/[0.08]' : 'bg-white border-gray-200'} border-b sticky top-0 z-50`}>
       <div className="px-4 sm:px-6 h-14 flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <Image src="/logo.png" alt="Gen Teknik Servis" width={110} height={34} className="object-contain" />
+          <Link href="/dashboard">
+  <Image src="/logo.png" alt="Gen Teknik Servis" width={110} height={34} className="object-contain cursor-pointer" />
+</Link>
           <div className="hidden sm:flex gap-0.5">
             {links.map(link => (
               <Link
