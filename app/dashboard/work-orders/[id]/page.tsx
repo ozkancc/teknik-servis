@@ -411,7 +411,7 @@ export default function WorkOrderDetailPage() {
               <p className={`text-xs uppercase tracking-wide ${d ? 'text-[#444]' : 'text-gray-400'}`}>Fotoğraflar</p>
               <label className="bg-blue-600 hover:bg-blue-500 text-white text-xs px-3 py-1.5 rounded-lg transition cursor-pointer">
                 {uploadingPhoto ? 'Yükleniyor...' : '+ Ekle'}
-                <input type="file" accept="image/*" multiple className="hidden" onChange={uploadPhoto} disabled={uploadingPhoto} />
+                <input type="file" accept="image/*" multiple capture="environment" className="hidden" onChange={uploadPhoto} disabled={uploadingPhoto} />
               </label>
             </div>
             {photos.length === 0 ? (
