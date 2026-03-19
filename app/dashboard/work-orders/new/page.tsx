@@ -4,6 +4,9 @@ import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import { useTheme } from '@/app/context/ThemeContext'
+import dynamic from 'next/dynamic'
+
+const BarcodeScanner = dynamic(() => import('@/components/BarcodeScanner'), { ssr: false })
 
 type Customer = { id: string; full_name: string; phone: string }
 type Device = { id: string; brand: string; model: string }
@@ -22,6 +25,7 @@ export default function NewWorkOrderPage() {
   const [problem, setProblem] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [showScanner, setShowScanner] = useState(false)
 
   const [tab, setTab] = useState<'mevcut' | 'yeni'>('mevcut')
   const [newName, setNewName] = useState('')
@@ -164,12 +168,8 @@ export default function NewWorkOrderPage() {
                           <p className={`text-xs px-4 py-3 ${d ? 'text-[#444]' : 'text-gray-400'}`}>Sonuç bulunamadı</p>
                         ) : (
                           filteredCustomers.map(c => (
-                            <button
-                              key={c.id}
-                              type="button"
-                              onClick={() => selectCustomer(c)}
-                              className={`w-full text-left px-4 py-2.5 transition border-b last:border-0 ${d ? 'border-white/[0.04] hover:bg-white/[0.05]' : 'border-gray-50 hover:bg-gray-50'}`}
-                            >
+                            <button key={c.id} type="button" onClick={() => selectCustomer(c)}
+                              className={`w-full text-left px-4 py-2.5 transition border-b last:border-0 ${d ? 'border-white/[0.04] hover:bg-white/[0.05]' : 'border-gray-50 hover:bg-gray-50'}`}>
                               <p className={`text-sm font-medium ${d ? 'text-white' : 'text-gray-900'}`}>{c.full_name}</p>
                               <p className={`text-xs ${d ? 'text-[#555]' : 'text-gray-400'}`}>{c.phone}</p>
                             </button>
@@ -221,7 +221,25 @@ export default function NewWorkOrderPage() {
                   <input value={newBrand} onChange={e => setNewBrand(e.target.value)} placeholder="Marka *" className={inputCls} />
                   <input value={newModel} onChange={e => setNewModel(e.target.value)} placeholder="Model *" className={inputCls} />
                 </div>
-                <input value={newSerial} onChange={e => setNewSerial(e.target.value)} placeholder="Seri Numarası" className={inputCls} />
+                <div className="flex gap-2">
+                  <input
+                    value={newSerial}
+                    onChange={e => setNewSerial(e.target.value)}
+                    placeholder="Seri Numarası"
+                    className={inputCls}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowScanner(true)}
+                    className={`px-3 rounded-lg border transition flex items-center justify-center ${d ? 'bg-[#1f1f1f] border-white/10 text-[#666] hover:text-white' : 'bg-gray-50 border-gray-200 text-gray-400 hover:text-gray-700'}`}
+                    title="Barkod okut"
+                  >
+                    <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 013.75 9.375v-4.5zM3.75 14.625c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5a1.125 1.125 0 01-1.125-1.125v-4.5zM13.5 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 0113.5 9.375v-4.5z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 6.75h.75v.75h-.75v-.75zM6.75 16.5h.75v.75h-.75V16.5zM16.5 6.75h.75v.75h-.75v-.75zM13.5 13.5h.75v.75h-.75v-.75zM13.5 19.5h.75v.75h-.75v-.75zM19.5 13.5h.75v.75h-.75v-.75zM19.5 19.5h.75v.75h-.75v-.75zM16.5 16.5h.75v.75h-.75v-.75z" />
+                    </svg>
+                  </button>
+                </div>
               </div>
             )}
           </div>
@@ -258,6 +276,16 @@ export default function NewWorkOrderPage() {
           </div>
         </form>
       </div>
+
+      {showScanner && (
+        <BarcodeScanner
+          onScan={(result) => {
+            setNewSerial(result)
+            setShowScanner(false)
+          }}
+          onClose={() => setShowScanner(false)}
+        />
+      )}
     </div>
   )
 }
