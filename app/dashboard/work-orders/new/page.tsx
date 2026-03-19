@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
+import { useTheme } from '@/app/context/ThemeContext'
 
 type Customer = { id: string; full_name: string; phone: string }
 type Device = { id: string; brand: string; model: string }
@@ -13,6 +14,9 @@ export default function NewWorkOrderPage() {
   const [devices, setDevices] = useState<Device[]>([])
   const [technicians, setTechnicians] = useState<Technician[]>([])
   const [customerId, setCustomerId] = useState('')
+  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null)
+  const [customerSearch, setCustomerSearch] = useState('')
+  const [showCustomerList, setShowCustomerList] = useState(false)
   const [deviceId, setDeviceId] = useState('')
   const [technicianId, setTechnicianId] = useState('')
   const [problem, setProblem] = useState('')
@@ -32,8 +36,13 @@ export default function NewWorkOrderPage() {
 
   const router = useRouter()
   const supabase = createClient()
+  const { theme } = useTheme()
+  const d = theme === 'dark'
 
-  const inputClass = "w-full bg-[#1f1f1f] border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+  const inputCls = `w-full border rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 ${d ? 'bg-[#1f1f1f] border-white/10 text-white placeholder-[#444]' : 'bg-white border-gray-200 text-gray-900 placeholder-gray-400'}`
+  const cardCls = `rounded-xl border p-5 ${d ? 'bg-[#1a1a1a] border-white/[0.06]' : 'bg-white border-gray-100'}`
+  const tabActiveCls = `px-3 py-1.5 rounded-md transition text-xs ${d ? 'bg-white/15 text-white' : 'bg-gray-200 text-gray-900'}`
+  const tabInactiveCls = `px-3 py-1.5 rounded-md transition text-xs ${d ? 'text-[#555] hover:text-gray-300' : 'text-gray-400 hover:text-gray-600'}`
 
   useEffect(() => {
     supabase.from('customers').select('id, full_name, phone').order('full_name').then(({ data }) => setCustomers(data ?? []))
@@ -45,6 +54,26 @@ export default function NewWorkOrderPage() {
     supabase.from('devices').select('id, brand, model').eq('customer_id', customerId).then(({ data }) => setDevices(data ?? []))
   }, [customerId])
 
+  const filteredCustomers = customers.filter(c => {
+    const q = customerSearch.toLowerCase()
+    return !q || c.full_name?.toLowerCase().includes(q) || c.phone?.includes(q)
+  })
+
+  function selectCustomer(c: Customer) {
+    setCustomerId(c.id)
+    setSelectedCustomer(c)
+    setCustomerSearch('')
+    setShowCustomerList(false)
+  }
+
+  function clearCustomer() {
+    setCustomerId('')
+    setSelectedCustomer(null)
+    setCustomerSearch('')
+    setDevices([])
+    setDeviceId('')
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setLoading(true)
@@ -52,7 +81,6 @@ export default function NewWorkOrderPage() {
 
     let finalCustomerId = customerId
 
-    // Yeni müşteri kaydı
     if (tab === 'yeni') {
       if (!newName) { setError('Müşteri adı zorunlu'); setLoading(false); return }
       const { data, error } = await supabase
@@ -65,7 +93,6 @@ export default function NewWorkOrderPage() {
 
     let finalDeviceId = deviceId || null
 
-    // Yeni cihaz kaydı
     if (deviceTab === 'yeni' && finalCustomerId) {
       if (!newBrand || !newModel) { setError('Marka ve model zorunlu'); setLoading(false); return }
       const { data } = await supabase
@@ -84,128 +111,140 @@ export default function NewWorkOrderPage() {
     })
 
     if (woError) { setError('İş emri oluşturulamadı: ' + woError.message); setLoading(false); return }
-const { data: newOrder } = await supabase
-      .from('work_orders')
-      .select('order_number, customers(full_name, email), devices(brand, model)')
-      .eq('customer_id', finalCustomerId)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .single()
-
-    if (newOrder && (newOrder as any).customers?.email) {
-      const c = (newOrder as any).customers
-      const d = (newOrder as any).devices
-      await fetch('/api/send-email', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          to: c.email,
-          customerName: c.full_name,
-          orderNumber: (newOrder as any).order_number,
-          status: 'beklemede',
-          deviceName: d ? `${d.brand} ${d.model}` : '',
-          message: 'İş emriniz oluşturuldu. En kısa sürede cihazınızı inceleyeceğiz.',
-        }),
-      })
-    }    
-router.push('/dashboard/work-orders')
+    router.push('/dashboard/work-orders')
   }
 
   return (
-    <div className="min-h-screen bg-[#0a0a0a]">
-      <div className="bg-[#141414] border-b border-white/10 px-6 py-4 flex items-center gap-3">
-        <button onClick={() => router.back()} className="text-gray-600 hover:text-white text-sm transition">← Geri</button>
-        <h1 className="text-white font-semibold">Yeni İş Emri</h1>
+    <div className={`min-h-screen ${d ? 'bg-[#0f0f0f]' : 'bg-gray-50'}`}>
+      <div className={`border-b px-4 sm:px-6 py-4 flex items-center gap-3 ${d ? 'bg-[#0f0f0f] border-white/[0.06]' : 'bg-white border-gray-100'}`}>
+        <button onClick={() => router.back()} className={`text-sm transition ${d ? 'text-[#555] hover:text-white' : 'text-gray-400 hover:text-gray-700'}`}>← Geri</button>
+        <h1 className={`font-semibold text-sm ${d ? 'text-white' : 'text-gray-900'}`}>Yeni İş Emri</h1>
       </div>
 
-      <div className="p-6 max-w-xl">
+      <div className="p-4 sm:p-6 max-w-xl mx-auto">
         <form onSubmit={handleSubmit} className="space-y-4">
 
           {/* Müşteri */}
-          <div className="bg-[#141414] border border-white/10 rounded-xl p-5">
+          <div className={cardCls}>
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-white text-sm font-semibold">Müşteri</h2>
-              <div className="flex bg-[#1f1f1f] rounded-lg p-0.5 text-xs">
-                <button type="button" onClick={() => setTab('mevcut')}
-                  className={`px-3 py-1.5 rounded-md transition ${tab === 'mevcut' ? 'bg-white/15 text-white' : 'text-gray-500 hover:text-gray-300'}`}>
-                  Mevcut
-                </button>
-                <button type="button" onClick={() => setTab('yeni')}
-                  className={`px-3 py-1.5 rounded-md transition ${tab === 'yeni' ? 'bg-white/15 text-white' : 'text-gray-500 hover:text-gray-300'}`}>
-                  Yeni Kayıt
-                </button>
+              <h2 className={`text-sm font-semibold ${d ? 'text-white' : 'text-gray-900'}`}>Müşteri</h2>
+              <div className={`flex rounded-lg p-0.5 ${d ? 'bg-[#1f1f1f]' : 'bg-gray-100'}`}>
+                <button type="button" onClick={() => { setTab('mevcut'); clearCustomer() }}
+                  className={tab === 'mevcut' ? tabActiveCls : tabInactiveCls}>Mevcut</button>
+                <button type="button" onClick={() => { setTab('yeni'); clearCustomer() }}
+                  className={tab === 'yeni' ? tabActiveCls : tabInactiveCls}>Yeni Kayıt</button>
               </div>
             </div>
 
             {tab === 'mevcut' ? (
-              <select value={customerId} onChange={e => setCustomerId(e.target.value)} className={inputClass} required>
-                <option value="">Müşteri seçin...</option>
-                {customers.map(c => <option key={c.id} value={c.id}>{c.full_name} — {c.phone}</option>)}
-              </select>
+              <div className="relative">
+                {selectedCustomer ? (
+                  <div className={`flex items-center justify-between p-3 rounded-lg border ${d ? 'bg-[#111] border-white/[0.08]' : 'bg-gray-50 border-gray-200'}`}>
+                    <div>
+                      <p className={`text-sm font-medium ${d ? 'text-white' : 'text-gray-900'}`}>{selectedCustomer.full_name}</p>
+                      <p className={`text-xs ${d ? 'text-[#666]' : 'text-gray-400'}`}>{selectedCustomer.phone}</p>
+                    </div>
+                    <button type="button" onClick={clearCustomer}
+                      className={`text-xs transition ${d ? 'text-[#444] hover:text-white' : 'text-gray-300 hover:text-gray-600'}`}>
+                      ✕
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    <input
+                      value={customerSearch}
+                      onChange={e => { setCustomerSearch(e.target.value); setShowCustomerList(true) }}
+                      onFocus={() => setShowCustomerList(true)}
+                      placeholder="İsim veya telefon ile ara..."
+                      className={inputCls}
+                    />
+                    {showCustomerList && (
+                      <div className={`absolute z-10 w-full mt-1 rounded-xl border shadow-lg overflow-hidden max-h-60 overflow-y-auto ${d ? 'bg-[#1a1a1a] border-white/[0.08]' : 'bg-white border-gray-200'}`}>
+                        {filteredCustomers.length === 0 ? (
+                          <p className={`text-xs px-4 py-3 ${d ? 'text-[#444]' : 'text-gray-400'}`}>Sonuç bulunamadı</p>
+                        ) : (
+                          filteredCustomers.map(c => (
+                            <button
+                              key={c.id}
+                              type="button"
+                              onClick={() => selectCustomer(c)}
+                              className={`w-full text-left px-4 py-2.5 transition border-b last:border-0 ${d ? 'border-white/[0.04] hover:bg-white/[0.05]' : 'border-gray-50 hover:bg-gray-50'}`}
+                            >
+                              <p className={`text-sm font-medium ${d ? 'text-white' : 'text-gray-900'}`}>{c.full_name}</p>
+                              <p className={`text-xs ${d ? 'text-[#555]' : 'text-gray-400'}`}>{c.phone}</p>
+                            </button>
+                          ))
+                        )}
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
             ) : (
               <div className="space-y-3">
-                <input value={newName} onChange={e => setNewName(e.target.value)} placeholder="Ad Soyad *" className={inputClass} />
+                <input value={newName} onChange={e => setNewName(e.target.value)} placeholder="Ad Soyad *" className={inputCls} />
                 <div className="grid grid-cols-2 gap-3">
-                  <input value={newPhone} onChange={e => setNewPhone(e.target.value)} placeholder="Telefon" className={inputClass} />
-                  <input value={newEmail} onChange={e => setNewEmail(e.target.value)} placeholder="E-posta" className={inputClass} />
+                  <input value={newPhone} onChange={e => setNewPhone(e.target.value)} placeholder="Telefon" className={inputCls} />
+                  <input value={newEmail} onChange={e => setNewEmail(e.target.value)} placeholder="E-posta" className={inputCls} />
                 </div>
-                <input value={newAddress} onChange={e => setNewAddress(e.target.value)} placeholder="Adres" className={inputClass} />
+                <input value={newAddress} onChange={e => setNewAddress(e.target.value)} placeholder="Adres" className={inputCls} />
               </div>
             )}
           </div>
 
           {/* Cihaz */}
-          <div className="bg-[#141414] border border-white/10 rounded-xl p-5">
+          <div className={cardCls}>
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-white text-sm font-semibold">Cihaz</h2>
-              <div className="flex bg-[#1f1f1f] rounded-lg p-0.5 text-xs">
+              <h2 className={`text-sm font-semibold ${d ? 'text-white' : 'text-gray-900'}`}>Cihaz</h2>
+              <div className={`flex rounded-lg p-0.5 ${d ? 'bg-[#1f1f1f]' : 'bg-gray-100'}`}>
                 <button type="button" onClick={() => setDeviceTab('mevcut')}
-                  className={`px-3 py-1.5 rounded-md transition ${deviceTab === 'mevcut' ? 'bg-white/15 text-white' : 'text-gray-500 hover:text-gray-300'}`}>
-                  Mevcut
-                </button>
+                  className={deviceTab === 'mevcut' ? tabActiveCls : tabInactiveCls}>Mevcut</button>
                 <button type="button" onClick={() => setDeviceTab('yeni')}
-                  className={`px-3 py-1.5 rounded-md transition ${deviceTab === 'yeni' ? 'bg-white/15 text-white' : 'text-gray-500 hover:text-gray-300'}`}>
-                  Yeni Kayıt
-                </button>
+                  className={deviceTab === 'yeni' ? tabActiveCls : tabInactiveCls}>Yeni Kayıt</button>
               </div>
             </div>
 
             {deviceTab === 'mevcut' ? (
               <>
-                <select value={deviceId} onChange={e => setDeviceId(e.target.value)} className={inputClass} disabled={tab === 'mevcut' && !customerId}>
+                <select value={deviceId} onChange={e => setDeviceId(e.target.value)} className={inputCls}
+                  disabled={tab === 'mevcut' && !customerId}>
                   <option value="">Cihaz seçin...</option>
-                  {devices.map(d => <option key={d.id} value={d.id}>{d.brand} {d.model}</option>)}
+                  {devices.map(dv => <option key={dv.id} value={dv.id}>{dv.brand} {dv.model}</option>)}
                 </select>
-                {tab === 'mevcut' && !customerId && <p className="text-gray-600 text-xs mt-2">Önce müşteri seçin</p>}
+                {tab === 'mevcut' && !customerId && (
+                  <p className={`text-xs mt-2 ${d ? 'text-[#555]' : 'text-gray-400'}`}>Önce müşteri seçin</p>
+                )}
               </>
             ) : (
               <div className="space-y-3">
                 <div className="grid grid-cols-2 gap-3">
-                  <input value={newBrand} onChange={e => setNewBrand(e.target.value)} placeholder="Marka * (Dell, HP...)" className={inputClass} />
-                  <input value={newModel} onChange={e => setNewModel(e.target.value)} placeholder="Model * (Inspiron 15)" className={inputClass} />
+                  <input value={newBrand} onChange={e => setNewBrand(e.target.value)} placeholder="Marka *" className={inputCls} />
+                  <input value={newModel} onChange={e => setNewModel(e.target.value)} placeholder="Model *" className={inputCls} />
                 </div>
-                <input value={newSerial} onChange={e => setNewSerial(e.target.value)} placeholder="Seri Numarası" className={inputClass} />
+                <input value={newSerial} onChange={e => setNewSerial(e.target.value)} placeholder="Seri Numarası" className={inputCls} />
               </div>
             )}
           </div>
 
           {/* Teknisyen + Sorun */}
-          <div className="bg-[#141414] border border-white/10 rounded-xl p-5 space-y-4">
+          <div className={cardCls + ' space-y-4'}>
             <div>
-              <label className="block text-sm text-gray-400 mb-1">Teknisyen</label>
-              <select value={technicianId} onChange={e => setTechnicianId(e.target.value)} className={inputClass}>
+              <label className={`block text-sm mb-1 ${d ? 'text-[#888]' : 'text-gray-500'}`}>Teknisyen</label>
+              <select value={technicianId} onChange={e => setTechnicianId(e.target.value)} className={inputCls}>
                 <option value="">Seçin...</option>
                 {technicians.map(t => <option key={t.id} value={t.id}>{t.full_name}</option>)}
               </select>
             </div>
             <div>
-              <label className="block text-sm text-gray-400 mb-1">Sorun Açıklaması *</label>
+              <label className={`block text-sm mb-1 ${d ? 'text-[#888]' : 'text-gray-500'}`}>Sorun Açıklaması *</label>
               <textarea value={problem} onChange={e => setProblem(e.target.value)} rows={3}
-                className={inputClass + ' resize-none'} placeholder="Müşterinin bildirdiği sorun..." required />
+                className={inputCls + ' resize-none'} placeholder="Müşterinin bildirdiği sorun..." required />
             </div>
           </div>
 
-          {error && <p className="text-red-400 text-sm bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">{error}</p>}
+          {error && (
+            <p className="text-red-400 text-sm bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">{error}</p>
+          )}
 
           <div className="flex gap-3">
             <button type="submit" disabled={loading}
@@ -213,7 +252,7 @@ router.push('/dashboard/work-orders')
               {loading ? 'Kaydediliyor...' : 'İş Emri Oluştur'}
             </button>
             <button type="button" onClick={() => router.back()}
-              className="bg-white/10 hover:bg-white/15 text-white px-6 py-2.5 rounded-lg text-sm font-medium transition">
+              className={`px-6 py-2.5 rounded-lg text-sm font-medium transition ${d ? 'bg-white/10 hover:bg-white/15 text-white' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'}`}>
               İptal
             </button>
           </div>
