@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useParams, useRouter } from 'next/navigation'
 import Navbar from '@/components/Navbar'
+import { useTheme } from '@/app/context/ThemeContext'
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
 
@@ -29,19 +30,21 @@ type WorkOrder = {
 }
 
 const STATUS: Record<string, { label: string; cls: string }> = {
-  beklemede:       { label: 'Beklemede',       cls: 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20' },
-  incelemede:      { label: 'İncelemede',      cls: 'bg-blue-500/10 text-blue-400 border-blue-500/20' },
-  onay_bekleniyor: { label: 'Onay Bekleniyor', cls: 'bg-orange-500/10 text-orange-400 border-orange-500/20' },
-  tamirde:         { label: 'Tamirde',         cls: 'bg-purple-500/10 text-purple-400 border-purple-500/20' },
-  tamamlandi:      { label: 'Tamamlandı',      cls: 'bg-green-500/10 text-green-400 border-green-500/20' },
-  teslim_edildi:   { label: 'Teslim Edildi',   cls: 'bg-gray-500/10 text-gray-400 border-gray-500/20' },
-  iptal:           { label: 'İptal',           cls: 'bg-red-500/10 text-red-400 border-red-500/20' },
+  beklemede:       { label: 'Beklemede',       cls: 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20' },
+  incelemede:      { label: 'İncelemede',      cls: 'bg-blue-500/10 text-blue-500 border-blue-500/20' },
+  onay_bekleniyor: { label: 'Onay Bekleniyor', cls: 'bg-orange-500/10 text-orange-500 border-orange-500/20' },
+  tamirde:         { label: 'Tamirde',         cls: 'bg-purple-500/10 text-purple-500 border-purple-500/20' },
+  tamamlandi:      { label: 'Tamamlandı',      cls: 'bg-green-500/10 text-green-500 border-green-500/20' },
+  teslim_edildi:   { label: 'Teslim Edildi',   cls: 'bg-gray-500/10 text-gray-500 border-gray-500/20' },
+  iptal:           { label: 'İptal',           cls: 'bg-red-500/10 text-red-500 border-red-500/20' },
 }
 
 export default function WorkOrderDetailPage() {
   const { id } = useParams()
   const router = useRouter()
   const supabase = createClient()
+  const { theme } = useTheme()
+  const d = theme === 'dark'
 
   const [order, setOrder] = useState<WorkOrder | null>(null)
   const [items, setItems] = useState<WorkOrderItem[]>([])
@@ -59,7 +62,8 @@ export default function WorkOrderDetailPage() {
   const [newDiscount, setNewDiscount] = useState('0')
   const [saving, setSaving] = useState(false)
 
-  const inputCls = "w-full bg-[#111] border border-white/[0.08] rounded-lg px-3 py-2 text-sm text-white placeholder-[#444] focus:outline-none focus:ring-1 focus:ring-blue-500"
+  const inputCls = `w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 ${d ? 'bg-[#111] border-white/[0.08] text-white placeholder-[#444]' : 'bg-white border-gray-200 text-gray-900 placeholder-gray-400'}`
+  const cardCls = `rounded-xl border p-4 ${d ? 'bg-[#1a1a1a] border-white/[0.06]' : 'bg-white border-gray-100'}`
 
   useEffect(() => {
     fetchOrder()
@@ -91,14 +95,10 @@ export default function WorkOrderDetailPage() {
   }
 
   async function fetchPhotos() {
-    const { data } = await supabase.storage
-      .from('work-order-photos')
-      .list(`${id}`)
+    const { data } = await supabase.storage.from('work-order-photos').list(`${id}`)
     if (data) {
       const urls = data.map(file => {
-        const { data: urlData } = supabase.storage
-          .from('work-order-photos')
-          .getPublicUrl(`${id}/${file.name}`)
+        const { data: urlData } = supabase.storage.from('work-order-photos').getPublicUrl(`${id}/${file.name}`)
         return urlData.publicUrl
       })
       setPhotos(urls)
@@ -109,15 +109,11 @@ export default function WorkOrderDetailPage() {
     const files = e.target.files
     if (!files || files.length === 0) return
     setUploadingPhoto(true)
-
     for (const file of Array.from(files)) {
       const ext = file.name.split('.').pop()
       const fileName = `${Date.now()}.${ext}`
-      await supabase.storage
-        .from('work-order-photos')
-        .upload(`${id}/${fileName}`, file)
+      await supabase.storage.from('work-order-photos').upload(`${id}/${fileName}`, file)
     }
-
     await fetchPhotos()
     setUploadingPhoto(false)
     e.target.value = ''
@@ -161,7 +157,6 @@ export default function WorkOrderDetailPage() {
         teslim_edildi:   'Cihazınız teslim edilmiştir. Bizi tercih ettiğiniz için teşekkür ederiz.',
         iptal:           'İş emriniz iptal edilmiştir.',
       }
-
       if (statusMessages[status]) {
         await fetch('/api/send-email', {
           method: 'POST',
@@ -177,32 +172,25 @@ export default function WorkOrderDetailPage() {
         })
       }
     }
-
     alert('Kaydedildi!')
   }
 
   function sendWhatsApp(message: string) {
-    if (!order?.customers?.phone) {
-      alert('Müşteri telefon numarası bulunamadı!')
-      return
-    }
+    if (!order?.customers?.phone) { alert('Müşteri telefon numarası bulunamadı!'); return }
     const phone = order.customers.phone.replace(/\D/g, '')
     const finalPhone = phone.startsWith('0') ? '90' + phone.slice(1) : '90' + phone
-    const url = `https://wa.me/${finalPhone}?text=${encodeURIComponent(message)}`
-    window.open(url, '_blank')
+    window.open(`https://wa.me/${finalPhone}?text=${encodeURIComponent(message)}`, '_blank')
   }
 
   function whatsAppMesaj(tip: string) {
     if (!order) return
     const cihaz = order.devices ? `${order.devices.brand} ${order.devices.model}` : 'cihazınız'
     const takipLink = `${window.location.origin}/takip`
-
     const mesajlar: Record<string, string> = {
       olusturuldu:   `Merhaba ${order.customers?.full_name}, is emiriniz olusturuldu. Is emri no: #${order.order_number}. Cihaziniz (${cihaz}) en kisa surede incelenecektir. Takip: ${takipLink}`,
       tamamlandi:    `Merhaba ${order.customers?.full_name}, ${cihaz} cihazinizin tamiri tamamlandi! Is emri no: #${order.order_number}. Teslim almak icin bizi arayabilirsiniz. Takip: ${takipLink}`,
       teslim_edildi: `Merhaba ${order.customers?.full_name}, ${cihaz} cihaziniz teslim edilmistir. Bizi tercih ettiginiz icin tesekkur ederiz. Iyi gunler dileriz!`,
     }
-
     sendWhatsApp(mesajlar[tip])
   }
 
@@ -215,7 +203,6 @@ export default function WorkOrderDetailPage() {
 
   async function generatePDF() {
     if (!order) return
-
     const koyu = [15, 15, 15] as [number, number, number]
     const acik = [245, 245, 245] as [number, number, number]
     const mavi = [220, 38, 38] as [number, number, number]
@@ -231,7 +218,6 @@ export default function WorkOrderDetailPage() {
     const logoData = canvas.toDataURL('image/png')
 
     const doc = new jsPDF()
-
     doc.addImage(logoData, 'PNG', 10, 8, 80, 38)
     doc.setTextColor(...koyu)
     doc.setFontSize(16)
@@ -305,72 +291,58 @@ export default function WorkOrderDetailPage() {
       body: items.map(item => {
         const line = item.quantity * item.unit_price
         const total = line - line * (item.discount_percent / 100)
-        return [
-          item.description,
-          item.quantity.toString(),
-          item.unit_price.toFixed(2) + ' TL',
-          item.discount_percent > 0 ? '%' + item.discount_percent : '—',
-          total.toFixed(2) + ' TL',
-        ]
+        return [item.description, item.quantity.toString(), item.unit_price.toFixed(2) + ' TL', item.discount_percent > 0 ? '%' + item.discount_percent : '—', total.toFixed(2) + ' TL']
       }),
       foot: [['', '', '', 'GENEL TOPLAM', calcTotal().toFixed(2) + ' TL']],
       styles: { fontSize: 9, cellPadding: 4 },
       headStyles: { fillColor: mavi, textColor: 255, fontStyle: 'bold', fontSize: 8 },
       footStyles: { fontStyle: 'bold', fillColor: acik, textColor: koyu },
       alternateRowStyles: { fillColor: [250, 250, 250] },
-      columnStyles: {
-        0: { cellWidth: 70 },
-        1: { halign: 'center', cellWidth: 20 },
-        2: { halign: 'right', cellWidth: 35 },
-        3: { halign: 'center', cellWidth: 25 },
-        4: { halign: 'right', cellWidth: 32 },
-      },
+      columnStyles: { 0: { cellWidth: 70 }, 1: { halign: 'center', cellWidth: 20 }, 2: { halign: 'right', cellWidth: 35 }, 3: { halign: 'center', cellWidth: 25 }, 4: { halign: 'right', cellWidth: 32 } },
     })
 
     const pageH = doc.internal.pageSize.height
+    const firmaAdi = process.env.NEXT_PUBLIC_FIRMA_ADI ?? 'Teknik Servis'
+    const firmaAdres = process.env.NEXT_PUBLIC_FIRMA_ADRES ?? ''
+    const firmaTel = process.env.NEXT_PUBLIC_FIRMA_TELEFON ?? ''
+    const firmaEmail = process.env.NEXT_PUBLIC_FIRMA_EMAIL ?? ''
+    const firmaWeb = process.env.NEXT_PUBLIC_FIRMA_WEB ?? ''
     doc.setDrawColor(220, 38, 38)
     doc.setLineWidth(0.8)
     doc.line(10, pageH - 16, 200, pageH - 16)
     doc.setTextColor(150, 150, 150)
     doc.setFontSize(8)
-    const firmaAdi = process.env.NEXT_PUBLIC_FIRMA_ADI ?? 'Teknik Servis'
-const firmaAdres = process.env.NEXT_PUBLIC_FIRMA_ADRES ?? ''
-const firmaTel = process.env.NEXT_PUBLIC_FIRMA_TELEFON ?? ''
-const firmaEmail = process.env.NEXT_PUBLIC_FIRMA_EMAIL ?? ''
-const firmaWeb = process.env.NEXT_PUBLIC_FIRMA_WEB ?? ''
-
-doc.text(`${firmaAdi} · ${firmaAdres} · Tel: ${firmaTel}`, 105, pageH - 12, { align: 'center' })
-doc.text(`${firmaEmail} · ${firmaWeb}`, 105, pageH - 6, { align: 'center' })
+    doc.text(`${firmaAdi} · Tel: ${firmaTel} · ${firmaEmail}`, 105, pageH - 10, { align: 'center' })
+    doc.text(`${firmaAdres} · ${firmaWeb}`, 105, pageH - 4, { align: 'center' })
 
     doc.save(`is-emri-${order.order_number}.pdf`)
   }
 
   if (loading) return (
-    <div className="min-h-screen bg-[#0f0f0f] flex items-center justify-center">
-      <p className="text-[#333] text-sm">Yükleniyor...</p>
+    <div className={`min-h-screen flex items-center justify-center ${d ? 'bg-[#0f0f0f]' : 'bg-gray-50'}`}>
+      <p className={d ? 'text-[#333]' : 'text-gray-400'}>Yükleniyor...</p>
     </div>
   )
 
   if (!order) return (
-    <div className="min-h-screen bg-[#0f0f0f] flex items-center justify-center">
-      <p className="text-[#333] text-sm">İş emri bulunamadı.</p>
+    <div className={`min-h-screen flex items-center justify-center ${d ? 'bg-[#0f0f0f]' : 'bg-gray-50'}`}>
+      <p className={d ? 'text-[#333]' : 'text-gray-400'}>İş emri bulunamadı.</p>
     </div>
   )
 
   return (
-    <div className="min-h-screen bg-[#0f0f0f]">
+    <div className={`min-h-screen ${d ? 'bg-[#0f0f0f]' : 'bg-gray-50'}`}>
       <Navbar />
 
-      <div className="px-4 sm:px-6 py-4 flex items-center justify-between border-b border-white/[0.06]">
+      <div className={`px-4 sm:px-6 py-4 flex items-center justify-between border-b ${d ? 'border-white/[0.06]' : 'border-gray-100'}`}>
         <div className="flex items-center gap-3">
-          <button onClick={() => router.back()} className="text-[#555] hover:text-white text-sm transition">← Geri</button>
-          <span className="text-white font-medium text-sm">İş Emri #{order.order_number}</span>
+          <button onClick={() => router.back()} className={`text-sm transition ${d ? 'text-[#555] hover:text-white' : 'text-gray-400 hover:text-gray-700'}`}>← Geri</button>
+          <span className={`font-medium text-sm ${d ? 'text-white' : 'text-gray-900'}`}>İş Emri #{order.order_number}</span>
           <span className={`inline-block px-2 py-0.5 rounded-full text-[11px] font-medium border ${STATUS[order.status]?.cls}`}>
             {STATUS[order.status]?.label}
           </span>
         </div>
-        <button onClick={generatePDF}
-          className="bg-blue-600 hover:bg-blue-500 text-white text-xs px-3 py-1.5 rounded-lg transition">
+        <button onClick={generatePDF} className="bg-blue-600 hover:bg-blue-500 text-white text-xs px-3 py-1.5 rounded-lg transition">
           PDF İndir
         </button>
       </div>
@@ -380,88 +352,63 @@ doc.text(`${firmaEmail} · ${firmaWeb}`, 105, pageH - 6, { align: 'center' })
         <div className="space-y-4">
 
           {/* Müşteri */}
-          <div className="bg-[#1a1a1a] rounded-xl border border-white/[0.06] p-4">
-            <p className="text-[#444] text-xs uppercase tracking-wide mb-3">Müşteri</p>
-            <p className="text-white font-medium text-sm">{order.customers?.full_name}</p>
-            <p className="text-[#666] text-xs mt-1">{order.customers?.phone}</p>
-            <p className="text-[#555] text-xs">{order.customers?.email}</p>
-            <p className="text-[#555] text-xs">{order.customers?.address}</p>
+          <div className={cardCls}>
+            <p className={`text-xs uppercase tracking-wide mb-3 ${d ? 'text-[#444]' : 'text-gray-400'}`}>Müşteri</p>
+            <p className={`font-medium text-sm ${d ? 'text-white' : 'text-gray-900'}`}>{order.customers?.full_name}</p>
+            <p className={`text-xs mt-1 ${d ? 'text-[#666]' : 'text-gray-500'}`}>{order.customers?.phone}</p>
+            <p className={`text-xs ${d ? 'text-[#555]' : 'text-gray-400'}`}>{order.customers?.email}</p>
+            <p className={`text-xs ${d ? 'text-[#555]' : 'text-gray-400'}`}>{order.customers?.address}</p>
 
             {order.customers?.phone && (
               <div className="mt-3 space-y-1.5">
-                <p className="text-[#444] text-[10px] uppercase tracking-wide mb-2">WhatsApp Gönder</p>
-                <button
-                  onClick={() => whatsAppMesaj('olusturuldu')}
-                  className="w-full text-left px-3 py-1.5 rounded-lg text-xs transition border"
-                  style={{ background: 'rgba(37,211,102,0.08)', color: '#25D366', borderColor: 'rgba(37,211,102,0.2)' }}
-                >
-                  İş emri oluşturuldu
-                </button>
-                <button
-                  onClick={() => whatsAppMesaj('tamamlandi')}
-                  className="w-full text-left px-3 py-1.5 rounded-lg text-xs transition border"
-                  style={{ background: 'rgba(37,211,102,0.08)', color: '#25D366', borderColor: 'rgba(37,211,102,0.2)' }}
-                >
-                  Tamir tamamlandı
-                </button>
-                <button
-                  onClick={() => whatsAppMesaj('teslim_edildi')}
-                  className="w-full text-left px-3 py-1.5 rounded-lg text-xs transition border"
-                  style={{ background: 'rgba(37,211,102,0.08)', color: '#25D366', borderColor: 'rgba(37,211,102,0.2)' }}
-                >
-                  Cihaz teslim edildi
-                </button>
+                <p className={`text-[10px] uppercase tracking-wide mb-2 ${d ? 'text-[#444]' : 'text-gray-400'}`}>WhatsApp Gönder</p>
+                {[
+                  { tip: 'olusturuldu', label: 'İş emri oluşturuldu' },
+                  { tip: 'tamamlandi', label: 'Tamir tamamlandı' },
+                  { tip: 'teslim_edildi', label: 'Cihaz teslim edildi' },
+                ].map(({ tip, label }) => (
+                  <button key={tip} onClick={() => whatsAppMesaj(tip)}
+                    className="w-full text-left px-3 py-1.5 rounded-lg text-xs transition border"
+                    style={{ background: 'rgba(37,211,102,0.08)', color: '#25D366', borderColor: 'rgba(37,211,102,0.2)' }}>
+                    {label}
+                  </button>
+                ))}
               </div>
             )}
           </div>
 
           {/* Cihaz */}
-          <div className="bg-[#1a1a1a] rounded-xl border border-white/[0.06] p-4">
-            <p className="text-[#444] text-xs uppercase tracking-wide mb-3">Cihaz</p>
-            <p className="text-white font-medium text-sm">{order.devices?.brand} {order.devices?.model}</p>
-            <p className="text-[#666] text-xs mt-1">Seri: {order.devices?.serial_number ?? '—'}</p>
-            <p className="text-[#555] text-xs">Teknisyen: {order.technicians?.full_name ?? '—'}</p>
+          <div className={cardCls}>
+            <p className={`text-xs uppercase tracking-wide mb-3 ${d ? 'text-[#444]' : 'text-gray-400'}`}>Cihaz</p>
+            <p className={`font-medium text-sm ${d ? 'text-white' : 'text-gray-900'}`}>{order.devices?.brand} {order.devices?.model}</p>
+            <p className={`text-xs mt-1 ${d ? 'text-[#666]' : 'text-gray-500'}`}>Seri: {order.devices?.serial_number ?? '—'}</p>
+            <p className={`text-xs ${d ? 'text-[#555]' : 'text-gray-400'}`}>Teknisyen: {order.technicians?.full_name ?? '—'}</p>
           </div>
 
           {/* Sorun */}
-          <div className="bg-[#1a1a1a] rounded-xl border border-white/[0.06] p-4">
-            <p className="text-[#444] text-xs uppercase tracking-wide mb-2">Sorun</p>
-            <p className="text-[#aaa] text-sm">{order.problem_description}</p>
+          <div className={cardCls}>
+            <p className={`text-xs uppercase tracking-wide mb-2 ${d ? 'text-[#444]' : 'text-gray-400'}`}>Sorun</p>
+            <p className={`text-sm ${d ? 'text-[#aaa]' : 'text-gray-600'}`}>{order.problem_description}</p>
           </div>
 
           {/* Fotoğraflar */}
-          <div className="bg-[#1a1a1a] rounded-xl border border-white/[0.06] p-4">
+          <div className={cardCls}>
             <div className="flex items-center justify-between mb-3">
-              <p className="text-[#444] text-xs uppercase tracking-wide">Fotoğraflar</p>
+              <p className={`text-xs uppercase tracking-wide ${d ? 'text-[#444]' : 'text-gray-400'}`}>Fotoğraflar</p>
               <label className="bg-blue-600 hover:bg-blue-500 text-white text-xs px-3 py-1.5 rounded-lg transition cursor-pointer">
                 {uploadingPhoto ? 'Yükleniyor...' : '+ Ekle'}
-                <input
-                  type="file"
-                  accept="image/*"
-                  multiple
-                  className="hidden"
-                  onChange={uploadPhoto}
-                  disabled={uploadingPhoto}
-                />
+                <input type="file" accept="image/*" multiple className="hidden" onChange={uploadPhoto} disabled={uploadingPhoto} />
               </label>
             </div>
-
             {photos.length === 0 ? (
-              <p className="text-[#333] text-xs text-center py-4">Henüz fotoğraf yok</p>
+              <p className={`text-xs text-center py-4 ${d ? 'text-[#333]' : 'text-gray-300'}`}>Henüz fotoğraf yok</p>
             ) : (
               <div className="grid grid-cols-3 gap-2">
                 {photos.map((url, i) => (
                   <div key={i} className="relative group">
-                    <img
-                      src={url}
-                      alt={`foto-${i}`}
-                      className="w-full h-20 object-cover rounded-lg cursor-pointer"
-                      onClick={() => setLightbox(url)}
-                    />
-                    <button
-                      onClick={() => deletePhoto(url)}
-                      className="absolute top-1 right-1 bg-black/70 text-red-400 text-xs w-5 h-5 rounded-full items-center justify-center hidden group-hover:flex"
-                    >
+                    <img src={url} alt={`foto-${i}`} className="w-full h-20 object-cover rounded-lg cursor-pointer" onClick={() => setLightbox(url)} />
+                    <button onClick={() => deletePhoto(url)}
+                      className="absolute top-1 right-1 bg-black/70 text-red-400 text-xs w-5 h-5 rounded-full items-center justify-center hidden group-hover:flex">
                       x
                     </button>
                   </div>
@@ -471,20 +418,15 @@ doc.text(`${firmaEmail} · ${firmaWeb}`, 105, pageH - 6, { align: 'center' })
           </div>
 
           {/* Durum güncelle */}
-          <div className="bg-[#1a1a1a] rounded-xl border border-white/[0.06] p-4 space-y-3">
-            <p className="text-[#444] text-xs uppercase tracking-wide">Durum Güncelle</p>
+          <div className={cardCls + ' space-y-3'}>
+            <p className={`text-xs uppercase tracking-wide ${d ? 'text-[#444]' : 'text-gray-400'}`}>Durum Güncelle</p>
             <select value={status} onChange={e => setStatus(e.target.value)} className={inputCls}>
               {Object.entries(STATUS).map(([val, { label }]) => (
                 <option key={val} value={val}>{label}</option>
               ))}
             </select>
-            <textarea
-              value={diagnosis}
-              onChange={e => setDiagnosis(e.target.value)}
-              placeholder="Teşhis notları..."
-              rows={3}
-              className={inputCls + ' resize-none'}
-            />
+            <textarea value={diagnosis} onChange={e => setDiagnosis(e.target.value)}
+              placeholder="Teşhis notları..." rows={3} className={inputCls + ' resize-none'} />
             <button onClick={updateOrder}
               className="w-full bg-blue-600 hover:bg-blue-500 text-white text-xs py-2 rounded-lg transition">
               Kaydet
@@ -494,37 +436,22 @@ doc.text(`${firmaEmail} · ${firmaWeb}`, 105, pageH - 6, { align: 'center' })
 
         {/* Sağ kolon */}
         <div className="lg:col-span-2">
-          <div className="bg-[#1a1a1a] rounded-xl border border-white/[0.06] p-4">
-            <p className="text-[#444] text-xs uppercase tracking-wide mb-4">Maliyet Kalemleri</p>
+          <div className={cardCls}>
+            <p className={`text-xs uppercase tracking-wide mb-4 ${d ? 'text-[#444]' : 'text-gray-400'}`}>Maliyet Kalemleri</p>
 
             <div className="space-y-2 mb-4">
-              <div className="flex gap-2">
-                <select
-                  onChange={e => {
-                    const part = parts.find(p => p.id === e.target.value)
-                    if (part) { setNewDesc(part.name); setNewPrice(part.list_price.toString()) }
-                  }}
-                  className={inputCls + ' flex-1'}
-                  defaultValue=""
-                >
-                  <option value="">Stoktan seç...</option>
-                  {parts.map(p => (
-                    <option key={p.id} value={p.id}>{p.name} — {p.list_price.toFixed(2)} TL</option>
-                  ))}
-                </select>
-              </div>
+              <select onChange={e => {
+                const part = parts.find(p => p.id === e.target.value)
+                if (part) { setNewDesc(part.name); setNewPrice(part.list_price.toString()) }
+              }} className={inputCls} defaultValue="">
+                <option value="">Stoktan seç...</option>
+                {parts.map(p => <option key={p.id} value={p.id}>{p.name} — {p.list_price.toFixed(2)} TL</option>)}
+              </select>
               <div className="grid grid-cols-12 gap-2">
-                <input value={newDesc} onChange={e => setNewDesc(e.target.value)}
-                  placeholder="Açıklama" className={inputCls + ' col-span-4'} />
-                <input value={newQty} onChange={e => setNewQty(e.target.value)}
-                  placeholder="Adet" type="number" min="0.01" step="0.01"
-                  className={inputCls + ' col-span-2'} />
-                <input value={newPrice} onChange={e => setNewPrice(e.target.value)}
-                  placeholder="Fiyat" type="number" min="0" step="0.01"
-                  className={inputCls + ' col-span-3'} />
-                <input value={newDiscount} onChange={e => setNewDiscount(e.target.value)}
-                  placeholder="İndirim%" type="number" min="0" max="100"
-                  className={inputCls + ' col-span-2'} />
+                <input value={newDesc} onChange={e => setNewDesc(e.target.value)} placeholder="Açıklama" className={inputCls + ' col-span-4'} />
+                <input value={newQty} onChange={e => setNewQty(e.target.value)} placeholder="Adet" type="number" min="0.01" step="0.01" className={inputCls + ' col-span-2'} />
+                <input value={newPrice} onChange={e => setNewPrice(e.target.value)} placeholder="Fiyat" type="number" min="0" step="0.01" className={inputCls + ' col-span-3'} />
+                <input value={newDiscount} onChange={e => setNewDiscount(e.target.value)} placeholder="İndirim%" type="number" min="0" max="100" className={inputCls + ' col-span-2'} />
                 <button onClick={addItem} disabled={saving}
                   className="col-span-1 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-sm transition disabled:opacity-50">
                   +
@@ -533,17 +460,14 @@ doc.text(`${firmaEmail} · ${firmaWeb}`, 105, pageH - 6, { align: 'center' })
             </div>
 
             {items.length === 0 ? (
-              <p className="text-[#444] text-xs text-center py-6">Henüz kalem eklenmedi</p>
+              <p className={`text-xs text-center py-6 ${d ? 'text-[#444]' : 'text-gray-300'}`}>Henüz kalem eklenmedi</p>
             ) : (
               <table className="w-full text-xs">
                 <thead>
-                  <tr className="border-b border-white/[0.06]">
-                    <th className="text-left py-2 text-[#444] font-medium">Açıklama</th>
-                    <th className="text-right py-2 text-[#444] font-medium">Adet</th>
-                    <th className="text-right py-2 text-[#444] font-medium">Fiyat</th>
-                    <th className="text-right py-2 text-[#444] font-medium">İndirim</th>
-                    <th className="text-right py-2 text-[#444] font-medium">Toplam</th>
-                    <th className="py-2"></th>
+                  <tr className={`border-b ${d ? 'border-white/[0.06]' : 'border-gray-100'}`}>
+                    {['Açıklama', 'Adet', 'Fiyat', 'İndirim', 'Toplam', ''].map(h => (
+                      <th key={h} className={`py-2 font-medium text-left last:text-right ${d ? 'text-[#444]' : 'text-gray-400'}`}>{h}</th>
+                    ))}
                   </tr>
                 </thead>
                 <tbody>
@@ -551,24 +475,23 @@ doc.text(`${firmaEmail} · ${firmaWeb}`, 105, pageH - 6, { align: 'center' })
                     const line = item.quantity * item.unit_price
                     const total = line - line * (item.discount_percent / 100)
                     return (
-                      <tr key={item.id} className="border-b border-white/[0.04] last:border-0">
-                        <td className="py-2.5 text-[#ccc]">{item.description}</td>
-                        <td className="py-2.5 text-right text-[#888]">{item.quantity}</td>
-                        <td className="py-2.5 text-right text-[#888]">{item.unit_price.toFixed(2)} TL</td>
-                        <td className="py-2.5 text-right text-[#555]">%{item.discount_percent}</td>
-                        <td className="py-2.5 text-right text-white font-medium">{total.toFixed(2)} TL</td>
+                      <tr key={item.id} className={`border-b last:border-0 ${d ? 'border-white/[0.04]' : 'border-gray-50'}`}>
+                        <td className={`py-2.5 ${d ? 'text-[#ccc]' : 'text-gray-700'}`}>{item.description}</td>
+                        <td className={`py-2.5 text-right ${d ? 'text-[#888]' : 'text-gray-500'}`}>{item.quantity}</td>
+                        <td className={`py-2.5 text-right ${d ? 'text-[#888]' : 'text-gray-500'}`}>{item.unit_price.toFixed(2)} TL</td>
+                        <td className={`py-2.5 text-right ${d ? 'text-[#555]' : 'text-gray-400'}`}>%{item.discount_percent}</td>
+                        <td className={`py-2.5 text-right font-medium ${d ? 'text-white' : 'text-gray-900'}`}>{total.toFixed(2)} TL</td>
                         <td className="py-2.5 text-right">
-                          <button onClick={() => removeItem(item.id)}
-                            className="text-[#333] hover:text-red-400 transition text-xs">Sil</button>
+                          <button onClick={() => removeItem(item.id)} className="text-red-400 hover:text-red-500 transition text-xs">Sil</button>
                         </td>
                       </tr>
                     )
                   })}
                 </tbody>
                 <tfoot>
-                  <tr className="border-t-2 border-white/10">
-                    <td colSpan={4} className="pt-3 text-right text-[#666] font-medium">Genel Toplam</td>
-                    <td className="pt-3 text-right text-white font-medium text-sm">{calcTotal().toFixed(2)} TL</td>
+                  <tr className={`border-t-2 ${d ? 'border-white/10' : 'border-gray-200'}`}>
+                    <td colSpan={4} className={`pt-3 text-right font-medium ${d ? 'text-[#666]' : 'text-gray-500'}`}>Genel Toplam</td>
+                    <td className={`pt-3 text-right font-medium text-sm ${d ? 'text-white' : 'text-gray-900'}`}>{calcTotal().toFixed(2)} TL</td>
                     <td></td>
                   </tr>
                 </tfoot>
@@ -578,19 +501,10 @@ doc.text(`${firmaEmail} · ${firmaWeb}`, 105, pageH - 6, { align: 'center' })
         </div>
       </div>
 
-      {/* Lightbox */}
       {lightbox && (
-        <div
-          className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 p-4"
-          onClick={() => setLightbox(null)}
-        >
+        <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 p-4" onClick={() => setLightbox(null)}>
           <img src={lightbox} alt="foto" className="max-w-full max-h-full rounded-xl object-contain" />
-          <button
-            className="absolute top-4 right-4 text-white text-2xl"
-            onClick={() => setLightbox(null)}
-          >
-            ✕
-          </button>
+          <button className="absolute top-4 right-4 text-white text-2xl" onClick={() => setLightbox(null)}>✕</button>
         </div>
       )}
     </div>
