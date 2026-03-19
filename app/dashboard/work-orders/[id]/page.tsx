@@ -175,6 +175,13 @@ export default function WorkOrderDetailPage() {
     alert('Kaydedildi!')
   }
 
+  async function deleteOrder() {
+    if (!confirm(`#${order?.order_number} numaralı iş emrini silmek istediğinize emin misiniz? Bu işlem geri alınamaz.`)) return
+    await supabase.from('work_order_items').delete().eq('work_order_id', id)
+    await supabase.from('work_orders').delete().eq('id', id)
+    router.replace('/dashboard/work-orders')
+  }
+
   function sendWhatsApp(message: string) {
     if (!order?.customers?.phone) { alert('Müşteri telefon numarası bulunamadı!'); return }
     const phone = order.customers.phone.replace(/\D/g, '')
@@ -342,9 +349,16 @@ export default function WorkOrderDetailPage() {
             {STATUS[order.status]?.label}
           </span>
         </div>
-        <button onClick={generatePDF} className="bg-blue-600 hover:bg-blue-500 text-white text-xs px-3 py-1.5 rounded-lg transition">
-          PDF İndir
-        </button>
+        <div className="flex gap-2">
+          <button onClick={generatePDF}
+            className="bg-blue-600 hover:bg-blue-500 text-white text-xs px-3 py-1.5 rounded-lg transition">
+            PDF İndir
+          </button>
+          <button onClick={deleteOrder}
+            className="bg-red-500/10 hover:bg-red-500/20 text-red-500 border border-red-500/20 text-xs px-3 py-1.5 rounded-lg transition">
+            Sil
+          </button>
+        </div>
       </div>
 
       <div className="px-4 sm:px-6 py-6 max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-4">
