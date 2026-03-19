@@ -1,17 +1,11 @@
 import type { Metadata } from 'next'
 import './globals.css'
 import { ThemeProvider } from './context/ThemeContext'
+import ServiceWorkerRegister from './ServiceWorkerRegister'
 
 export const metadata: Metadata = {
   title: 'Gen Teknik Servis',
   description: 'Teknik Servis Yönetim Sistemi',
-  manifest: '/manifest.json',
-  themeColor: '#dc2626',
-  appleWebApp: {
-    capable: true,
-    statusBarStyle: 'default',
-    title: 'Gen Teknik Servis',
-  },
 }
 
 export default function RootLayout({
@@ -33,6 +27,7 @@ export default function RootLayout({
         <ThemeProvider>
           {children}
         </ThemeProvider>
+        <ServiceWorkerRegister />
       </body>
     </html>
   )
