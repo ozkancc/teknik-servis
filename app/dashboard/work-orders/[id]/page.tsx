@@ -32,12 +32,12 @@ type WorkOrder = {
 
 const STATUS: Record<string, { label: string; cls: string }> = {
   beklemede:       { label: 'Beklemede',       cls: 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20' },
-  incelemede:      { label: 'İncelemede',      cls: 'bg-blue-500/10 text-blue-500 border-blue-500/20' },
+  incelemede:      { label: 'Incelemede',      cls: 'bg-blue-500/10 text-blue-500 border-blue-500/20' },
   onay_bekleniyor: { label: 'Onay Bekleniyor', cls: 'bg-orange-500/10 text-orange-500 border-orange-500/20' },
   tamirde:         { label: 'Tamirde',         cls: 'bg-purple-500/10 text-purple-500 border-purple-500/20' },
-  tamamlandi:      { label: 'Tamamlandı',      cls: 'bg-green-500/10 text-green-500 border-green-500/20' },
+  tamamlandi:      { label: 'Tamamlandi',      cls: 'bg-green-500/10 text-green-500 border-green-500/20' },
   teslim_edildi:   { label: 'Teslim Edildi',   cls: 'bg-gray-500/10 text-gray-500 border-gray-500/20' },
-  iptal:           { label: 'İptal',           cls: 'bg-red-500/10 text-red-500 border-red-500/20' },
+  iptal:           { label: 'Iptal',           cls: 'bg-red-500/10 text-red-500 border-red-500/20' },
 }
 
 function hexToRgb(hex: string): [number, number, number] {
@@ -47,6 +47,16 @@ function hexToRgb(hex: string): [number, number, number] {
   const b = parseInt(clean.slice(4, 6), 16)
   if (isNaN(r) || isNaN(g) || isNaN(b)) return [220, 38, 38]
   return [r, g, b]
+}
+
+function tr(str: string): string {
+  return (str ?? '').toString()
+    .replace(/ş/g, 's').replace(/Ş/g, 'S')
+    .replace(/ğ/g, 'g').replace(/Ğ/g, 'G')
+    .replace(/ü/g, 'u').replace(/Ü/g, 'U')
+    .replace(/ö/g, 'o').replace(/Ö/g, 'O')
+    .replace(/ı/g, 'i').replace(/İ/g, 'I')
+    .replace(/ç/g, 'c').replace(/Ç/g, 'C')
 }
 
 export default function WorkOrderDetailPage() {
@@ -66,7 +76,6 @@ export default function WorkOrderDetailPage() {
   const [photos, setPhotos] = useState<string[]>([])
   const [uploadingPhoto, setUploadingPhoto] = useState(false)
   const [lightbox, setLightbox] = useState<string | null>(null)
-
   const [newDesc, setNewDesc] = useState('')
   const [newQty, setNewQty] = useState('1')
   const [newPrice, setNewPrice] = useState('')
@@ -158,15 +167,14 @@ export default function WorkOrderDetailPage() {
 
   async function updateOrder() {
     await supabase.from('work_orders').update({ status, diagnosis }).eq('id', id)
-
     if (order?.customers?.email) {
       const statusMessages: Record<string, string> = {
-        incelemede:      'Cihazınız teknik servisimize ulaştı ve inceleme sürecine alındı.',
-        onay_bekleniyor: 'Cihazınız incelendi. Tamir işlemi için onayınızı bekliyoruz.',
-        tamirde:         'Cihazınızın tamir işlemi başladı.',
-        tamamlandi:      'Cihazınızın tamiri tamamlandı. Teslim almak için bizi arayabilirsiniz.',
-        teslim_edildi:   'Cihazınız teslim edilmiştir. Bizi tercih ettiğiniz için teşekkür ederiz.',
-        iptal:           'İş emriniz iptal edilmiştir.',
+        incelemede:      'Cihaziniz teknik servisimize ulasti ve inceleme surecine alindi.',
+        onay_bekleniyor: 'Cihaziniz incelendi. Tamir islemi icin onayinizi bekliyoruz.',
+        tamirde:         'Cihazinizin tamir islemi basladi.',
+        tamamlandi:      'Cihazinizin tamiri tamamlandi. Teslim almak icin bizi arayabilirsiniz.',
+        teslim_edildi:   'Cihaziniz teslim edilmistir. Bizi tercih ettiginiz icin tesekkur ederiz.',
+        iptal:           'Is emiriniz iptal edilmistir.',
       }
       if (statusMessages[status]) {
         await fetch('/api/send-email', {
@@ -187,14 +195,14 @@ export default function WorkOrderDetailPage() {
   }
 
   async function deleteOrder() {
-    if (!confirm(`#${order?.order_number} numaralı iş emrini silmek istediğinize emin misiniz?`)) return
+    if (!confirm(`#${order?.order_number} numarali is emrini silmek istediginize emin misiniz?`)) return
     await supabase.from('work_order_items').delete().eq('work_order_id', id)
     await supabase.from('work_orders').delete().eq('id', id)
     router.replace('/dashboard/work-orders')
   }
 
   function sendWhatsApp(message: string) {
-    if (!order?.customers?.phone) { alert('Müşteri telefon numarası bulunamadı!'); return }
+    if (!order?.customers?.phone) { alert('Musteri telefon numarasi bulunamadi!'); return }
     const phone = order.customers.phone.replace(/\D/g, '')
     const finalPhone = phone.startsWith('0') ? '90' + phone.slice(1) : '90' + phone
     window.open(`https://wa.me/${finalPhone}?text=${encodeURIComponent(message)}`, '_blank')
@@ -202,7 +210,7 @@ export default function WorkOrderDetailPage() {
 
   function whatsAppMesaj(tip: string) {
     if (!order) return
-    const cihaz = order.devices ? `${order.devices.brand} ${order.devices.model}` : 'cihazınız'
+    const cihaz = order.devices ? `${order.devices.brand} ${order.devices.model}` : 'cihaziniz'
     const takipLink = `${window.location.origin}/takip`
     const mesajlar: Record<string, string> = {
       olusturuldu:   `Merhaba ${order.customers?.full_name}, is emiriniz olusturuldu. Is emri no: #${order.order_number}. Cihaziniz (${cihaz}) en kisa surede incelenecektir. Takip: ${takipLink}`,
@@ -219,18 +227,162 @@ export default function WorkOrderDetailPage() {
     }, 0)
   }
 
- generatePDF
+  async function generatePDF() {
+    if (!order) return
+
+    const koyu = [15, 15, 15] as [number, number, number]
+    const acik = [245, 245, 245] as [number, number, number]
+    const pdfRenk = hexToRgb(s.pdf_renk || '#dc2626')
+
+    const logoSrc = s.logo_url || '/logo.png'
+    const logoImg = new window.Image()
+    logoImg.crossOrigin = 'anonymous'
+    logoImg.src = logoSrc
+
+    await new Promise<void>((resolve) => {
+      logoImg.onload = () => resolve()
+      logoImg.onerror = () => resolve()
+      setTimeout(resolve, 3000)
+    })
+
+    const canvas = document.createElement('canvas')
+    canvas.width = logoImg.naturalWidth || 400
+    canvas.height = logoImg.naturalHeight || 200
+    const ctx = canvas.getContext('2d')!
+    ctx.drawImage(logoImg, 0, 0)
+    const logoData = canvas.toDataURL('image/png')
+
+    const doc = new jsPDF()
+
+    const maxW = 55
+    const maxH = 25
+    const ratio = Math.min(maxW / (logoImg.naturalWidth || 400), maxH / (logoImg.naturalHeight || 200))
+    const logoW = (logoImg.naturalWidth || 400) * ratio
+    const logoH = (logoImg.naturalHeight || 200) * ratio
+    doc.addImage(logoData, 'PNG', 10, 8, logoW, logoH)
+
+    doc.setTextColor(...koyu)
+    doc.setFontSize(15)
+    doc.setFont('helvetica', 'bold')
+    doc.text(`Is Emri #${order.order_number}`, 196, 14, { align: 'right' })
+    doc.setFontSize(9)
+    doc.setFont('helvetica', 'normal')
+    doc.setTextColor(100, 100, 100)
+    doc.text(`Tarih: ${new Date(order.created_at).toLocaleDateString('tr-TR')}`, 196, 22, { align: 'right' })
+    doc.text(`Durum: ${tr(STATUS[order.status]?.label ?? order.status)}`, 196, 29, { align: 'right' })
+
+    doc.setDrawColor(...pdfRenk)
+    doc.setLineWidth(0.8)
+    doc.line(10, 38, 200, 38)
+
+    const rowY = 46
+    doc.setFillColor(...acik)
+    doc.roundedRect(10, rowY, 88, 40, 2, 2, 'F')
+    doc.setFontSize(7)
+    doc.setTextColor(120, 120, 120)
+    doc.text('MUSTERI', 14, rowY + 6)
+    doc.setTextColor(...koyu)
+    doc.setFontSize(10)
+    doc.setFont('helvetica', 'bold')
+    doc.text(tr(order.customers?.full_name ?? ''), 14, rowY + 13)
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(8)
+    doc.text(tr(order.customers?.phone ?? ''), 14, rowY + 20)
+    doc.text(tr(order.customers?.email ?? ''), 14, rowY + 26)
+    doc.text(tr(order.customers?.address ?? ''), 14, rowY + 32, { maxWidth: 80 })
+
+    doc.setFillColor(...acik)
+    doc.roundedRect(104, rowY, 88, 40, 2, 2, 'F')
+    doc.setFontSize(7)
+    doc.setTextColor(120, 120, 120)
+    doc.text('CIHAZ', 108, rowY + 6)
+    doc.setTextColor(...koyu)
+    doc.setFontSize(10)
+    doc.setFont('helvetica', 'bold')
+    doc.text(tr(`${order.devices?.brand ?? ''} ${order.devices?.model ?? ''}`), 108, rowY + 13)
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(8)
+    doc.text(tr(`Seri No: ${order.devices?.serial_number ?? '-'}`), 108, rowY + 20)
+    doc.text(tr(`Teknisyen: ${order.technicians?.full_name ?? '-'}`), 108, rowY + 26)
+
+    let curY = rowY + 48
+    doc.setFillColor(...acik)
+    doc.roundedRect(10, curY, 182, 16, 2, 2, 'F')
+    doc.setFontSize(7)
+    doc.setTextColor(120, 120, 120)
+    doc.text('SORUN', 14, curY + 6)
+    doc.setTextColor(...koyu)
+    doc.setFontSize(9)
+    doc.text(tr(order.problem_description ?? ''), 14, curY + 12, { maxWidth: 174 })
+
+    if (order.diagnosis) {
+      curY += 22
+      doc.setFillColor(...acik)
+      doc.roundedRect(10, curY, 182, 16, 2, 2, 'F')
+      doc.setFontSize(7)
+      doc.setTextColor(120, 120, 120)
+      doc.text('TESHIS', 14, curY + 6)
+      doc.setTextColor(...koyu)
+      doc.setFontSize(9)
+      doc.text(tr(order.diagnosis), 14, curY + 12, { maxWidth: 174 })
+    }
+
+    curY += 26
+    autoTable(doc, {
+      startY: curY,
+      head: [['ACIKLAMA', 'ADET', 'BIRIM FIYAT', 'INDIRIM', 'TOPLAM']],
+      body: items.map(item => {
+        const line = item.quantity * item.unit_price
+        const total = line - line * (item.discount_percent / 100)
+        return [
+          tr(item.description),
+          item.quantity.toString(),
+          item.unit_price.toFixed(2) + ' TL',
+          item.discount_percent > 0 ? '%' + item.discount_percent : '-',
+          total.toFixed(2) + ' TL',
+        ]
+      }),
+      foot: [['', '', '', 'GENEL TOPLAM', calcTotal().toFixed(2) + ' TL']],
+      styles: { fontSize: 9, cellPadding: 4 },
+      headStyles: { fillColor: pdfRenk, textColor: 255, fontStyle: 'bold', fontSize: 8 },
+      footStyles: { fontStyle: 'bold', fillColor: acik, textColor: koyu },
+      alternateRowStyles: { fillColor: [250, 250, 250] },
+      columnStyles: {
+        0: { cellWidth: 70 },
+        1: { halign: 'center', cellWidth: 20 },
+        2: { halign: 'right', cellWidth: 35 },
+        3: { halign: 'center', cellWidth: 25 },
+        4: { halign: 'right', cellWidth: 32 },
+      },
+    })
+
+    const pageH = doc.internal.pageSize.height
+    doc.setDrawColor(...pdfRenk)
+    doc.setLineWidth(0.8)
+    doc.line(10, pageH - 18, 200, pageH - 18)
+    doc.setTextColor(120, 120, 120)
+    doc.setFontSize(8)
+    doc.text(
+      tr(`${s.firma_adi} · Tel: ${s.firma_telefon} · ${s.firma_email}`),
+      105, pageH - 11, { align: 'center' }
+    )
+    doc.text(
+      tr(`${s.firma_adres} · ${s.firma_web}`),
+      105, pageH - 5, { align: 'center' }
+    )
+
+    doc.save(`is-emri-${order.order_number}.pdf`)
   }
 
   if (loading) return (
     <div className={`min-h-screen flex items-center justify-center ${d ? 'bg-[#0f0f0f]' : 'bg-gray-50'}`}>
-      <p className={d ? 'text-[#333]' : 'text-gray-400'}>Yükleniyor...</p>
+      <p className={d ? 'text-[#333]' : 'text-gray-400'}>Yukleniyor...</p>
     </div>
   )
 
   if (!order) return (
     <div className={`min-h-screen flex items-center justify-center ${d ? 'bg-[#0f0f0f]' : 'bg-gray-50'}`}>
-      <p className={d ? 'text-[#333]' : 'text-gray-400'}>İş emri bulunamadı.</p>
+      <p className={d ? 'text-[#333]' : 'text-gray-400'}>Is emri bulunamadi.</p>
     </div>
   )
 
