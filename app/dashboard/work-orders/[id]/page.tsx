@@ -1,5 +1,5 @@
 'use client'
-
+import { useSettings } from '@/app/hooks/useSettings'
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useParams, useRouter } from 'next/navigation'
@@ -45,7 +45,7 @@ export default function WorkOrderDetailPage() {
   const supabase = createClient()
   const { theme } = useTheme()
   const d = theme === 'dark'
-
+  const s = useSettings()
   const [order, setOrder] = useState<WorkOrder | null>(null)
   const [items, setItems] = useState<WorkOrderItem[]>([])
   const [loading, setLoading] = useState(true)
@@ -211,11 +211,18 @@ export default function WorkOrderDetailPage() {
   async function generatePDF() {
     if (!order) return
     const koyu = [15, 15, 15] as [number, number, number]
-    const acik = [245, 245, 245] as [number, number, number]
-    const mavi = [220, 38, 38] as [number, number, number]
+const acik = [245, 245, 245] as [number, number, number]
+
+const hexToRgb = (hex: string): [number, number, number] => {
+  const r = parseInt(hex.slice(1, 3), 16)
+  const g = parseInt(hex.slice(3, 5), 16)
+  const b = parseInt(hex.slice(5, 7), 16)
+  return [r, g, b]
+}
+const mavi = hexToRgb(s.pdf_renk || '#dc2626')
 
     const logoImg = new window.Image()
-    logoImg.src = '/logo.png'
+logoImg.src = s.logo_url || '/logo.png'
     await new Promise(resolve => { logoImg.onload = resolve })
     const canvas = document.createElement('canvas')
     canvas.width = logoImg.width
@@ -309,11 +316,11 @@ export default function WorkOrderDetailPage() {
     })
 
     const pageH = doc.internal.pageSize.height
-    const firmaAdi = process.env.NEXT_PUBLIC_FIRMA_ADI ?? 'Teknik Servis'
-    const firmaAdres = process.env.NEXT_PUBLIC_FIRMA_ADRES ?? ''
-    const firmaTel = process.env.NEXT_PUBLIC_FIRMA_TELEFON ?? ''
-    const firmaEmail = process.env.NEXT_PUBLIC_FIRMA_EMAIL ?? ''
-    const firmaWeb = process.env.NEXT_PUBLIC_FIRMA_WEB ?? ''
+    const firmaAdi = s.firma_adi
+const firmaAdres = s.firma_adres
+const firmaTel = s.firma_telefon
+const firmaEmail = s.firma_email
+const firmaWeb = s.firma_web
     doc.setDrawColor(220, 38, 38)
     doc.setLineWidth(0.8)
     doc.line(10, pageH - 16, 200, pageH - 16)
