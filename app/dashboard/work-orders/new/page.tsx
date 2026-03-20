@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import { useTheme } from '@/app/context/ThemeContext'
 import dynamic from 'next/dynamic'
+import Navbar from '@/components/Navbar'
 
 const BarcodeScanner = dynamic(() => import('@/components/BarcodeScanner'), { ssr: false })
 
@@ -120,6 +121,8 @@ export default function NewWorkOrderPage() {
 
   return (
     <div className={`min-h-screen ${d ? 'bg-[#0f0f0f]' : 'bg-gray-50'}`}>
+      <Navbar />
+
       <div className={`border-b px-4 sm:px-6 py-4 flex items-center gap-3 ${d ? 'bg-[#0f0f0f] border-white/[0.06]' : 'bg-white border-gray-100'}`}>
         <button onClick={() => router.back()} className={`text-sm transition ${d ? 'text-[#555] hover:text-white' : 'text-gray-400 hover:text-gray-700'}`}>← Geri</button>
         <h1 className={`font-semibold text-sm ${d ? 'text-white' : 'text-gray-900'}`}>Yeni İş Emri</h1>
