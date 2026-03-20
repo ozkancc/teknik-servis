@@ -1,5 +1,5 @@
 'use client'
-
+import { useSettings } from '@/app/hooks/useSettings'
 import { useState } from 'react'
 import Image from 'next/image'
 import { createClient } from '@/lib/supabase'
@@ -35,11 +35,12 @@ export default function TakipPage() {
   const [searched, setSearched] = useState(false)
   const [error, setError] = useState('')
 
-  const firmaAdi = process.env.NEXT_PUBLIC_FIRMA_ADI ?? 'Teknik Servis'
-  const firmaAdres = process.env.NEXT_PUBLIC_FIRMA_ADRES ?? ''
-  const firmaTel = process.env.NEXT_PUBLIC_FIRMA_TELEFON ?? ''
-  const firmaEmail = process.env.NEXT_PUBLIC_FIRMA_EMAIL ?? ''
-  const firmaWeb = process.env.NEXT_PUBLIC_FIRMA_WEB ?? ''
+  const s = useSettings()
+const firmaAdi = s.firma_adi
+const firmaAdres = s.firma_adres
+const firmaTel = s.firma_telefon
+const firmaEmail = s.firma_email
+const firmaWeb = s.firma_web
 
   async function handleSearch(e?: React.FormEvent) {
     if (e) e.preventDefault()

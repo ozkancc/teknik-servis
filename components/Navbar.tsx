@@ -20,13 +20,14 @@ export default function Navbar() {
   }
 
   const links = [
-    { href: '/dashboard', label: 'Ana Sayfa' },
-    { href: '/dashboard/work-orders', label: 'İş Emirleri' },
-    { href: '/dashboard/customers', label: 'Müşteriler' },
-    { href: '/dashboard/technicians', label: 'Teknisyenler' },
-    { href: '/dashboard/parts', label: 'Stok' },
-    { href: '/dashboard/export', label: 'Dışa Aktar' },
-  ]
+  { href: '/dashboard', label: 'Ana Sayfa' },
+  { href: '/dashboard/work-orders', label: 'İş Emirleri' },
+  { href: '/dashboard/customers', label: 'Müşteriler' },
+  { href: '/dashboard/technicians', label: 'Teknisyenler' },
+  { href: '/dashboard/parts', label: 'Stok' },
+  { href: '/dashboard/export', label: 'Dışa Aktar' },
+  { href: '/dashboard/settings', label: 'Ayarlar' },
+]
 
   const isDark = theme === 'dark'
 
