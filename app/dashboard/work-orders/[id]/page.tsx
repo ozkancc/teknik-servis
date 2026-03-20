@@ -1,10 +1,11 @@
 'use client'
-import { useSettings } from '@/app/hooks/useSettings'
+
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useParams, useRouter } from 'next/navigation'
 import Navbar from '@/components/Navbar'
 import { useTheme } from '@/app/context/ThemeContext'
+import { useSettings } from '@/app/hooks/useSettings'
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
 
@@ -39,6 +40,15 @@ const STATUS: Record<string, { label: string; cls: string }> = {
   iptal:           { label: 'İptal',           cls: 'bg-red-500/10 text-red-500 border-red-500/20' },
 }
 
+function hexToRgb(hex: string): [number, number, number] {
+  const clean = hex.replace('#', '')
+  const r = parseInt(clean.slice(0, 2), 16)
+  const g = parseInt(clean.slice(2, 4), 16)
+  const b = parseInt(clean.slice(4, 6), 16)
+  if (isNaN(r) || isNaN(g) || isNaN(b)) return [220, 38, 38]
+  return [r, g, b]
+}
+
 export default function WorkOrderDetailPage() {
   const { id } = useParams()
   const router = useRouter()
@@ -46,6 +56,7 @@ export default function WorkOrderDetailPage() {
   const { theme } = useTheme()
   const d = theme === 'dark'
   const s = useSettings()
+
   const [order, setOrder] = useState<WorkOrder | null>(null)
   const [items, setItems] = useState<WorkOrderItem[]>([])
   const [loading, setLoading] = useState(true)
@@ -176,7 +187,7 @@ export default function WorkOrderDetailPage() {
   }
 
   async function deleteOrder() {
-    if (!confirm(`#${order?.order_number} numaralı iş emrini silmek istediğinize emin misiniz? Bu işlem geri alınamaz.`)) return
+    if (!confirm(`#${order?.order_number} numaralı iş emrini silmek istediğinize emin misiniz?`)) return
     await supabase.from('work_order_items').delete().eq('work_order_id', id)
     await supabase.from('work_orders').delete().eq('id', id)
     router.replace('/dashboard/work-orders')
@@ -210,28 +221,31 @@ export default function WorkOrderDetailPage() {
 
   async function generatePDF() {
     if (!order) return
+
     const koyu = [15, 15, 15] as [number, number, number]
-const acik = [245, 245, 245] as [number, number, number]
+    const acik = [245, 245, 245] as [number, number, number]
+    const pdfRenk = hexToRgb(s.pdf_renk || '#dc2626')
 
-const hexToRgb = (hex: string): [number, number, number] => {
-  const r = parseInt(hex.slice(1, 3), 16)
-  const g = parseInt(hex.slice(3, 5), 16)
-  const b = parseInt(hex.slice(5, 7), 16)
-  return [r, g, b]
-}
-const mavi = hexToRgb(s.pdf_renk || '#dc2626')
-
+    const logoSrc = s.logo_url || '/logo.png'
     const logoImg = new window.Image()
-logoImg.src = s.logo_url || '/logo.png'
-    await new Promise(resolve => { logoImg.onload = resolve })
+    logoImg.crossOrigin = 'anonymous'
+    logoImg.src = logoSrc
+
+    await new Promise<void>((resolve) => {
+      logoImg.onload = () => resolve()
+      logoImg.onerror = () => resolve()
+      setTimeout(resolve, 3000)
+    })
+
     const canvas = document.createElement('canvas')
-    canvas.width = logoImg.width
-    canvas.height = logoImg.height
+    canvas.width = logoImg.naturalWidth || 400
+    canvas.height = logoImg.naturalHeight || 200
     const ctx = canvas.getContext('2d')!
     ctx.drawImage(logoImg, 0, 0)
     const logoData = canvas.toDataURL('image/png')
 
     const doc = new jsPDF()
+
     doc.addImage(logoData, 'PNG', 10, 8, 80, 38)
     doc.setTextColor(...koyu)
     doc.setFontSize(16)
@@ -242,7 +256,8 @@ logoImg.src = s.logo_url || '/logo.png'
     doc.setTextColor(100, 100, 100)
     doc.text(`Tarih: ${new Date(order.created_at).toLocaleDateString('tr-TR')}`, 196, 24, { align: 'right' })
     doc.text(`Durum: ${STATUS[order.status]?.label ?? order.status}`, 196, 31, { align: 'right' })
-    doc.setDrawColor(220, 38, 38)
+
+    doc.setDrawColor(...pdfRenk)
     doc.setLineWidth(0.8)
     doc.line(10, 50, 200, 50)
 
@@ -309,25 +324,20 @@ logoImg.src = s.logo_url || '/logo.png'
       }),
       foot: [['', '', '', 'GENEL TOPLAM', calcTotal().toFixed(2) + ' TL']],
       styles: { fontSize: 9, cellPadding: 4 },
-      headStyles: { fillColor: mavi, textColor: 255, fontStyle: 'bold', fontSize: 8 },
+      headStyles: { fillColor: pdfRenk, textColor: 255, fontStyle: 'bold', fontSize: 8 },
       footStyles: { fontStyle: 'bold', fillColor: acik, textColor: koyu },
       alternateRowStyles: { fillColor: [250, 250, 250] },
       columnStyles: { 0: { cellWidth: 70 }, 1: { halign: 'center', cellWidth: 20 }, 2: { halign: 'right', cellWidth: 35 }, 3: { halign: 'center', cellWidth: 25 }, 4: { halign: 'right', cellWidth: 32 } },
     })
 
     const pageH = doc.internal.pageSize.height
-    const firmaAdi = s.firma_adi
-const firmaAdres = s.firma_adres
-const firmaTel = s.firma_telefon
-const firmaEmail = s.firma_email
-const firmaWeb = s.firma_web
-    doc.setDrawColor(220, 38, 38)
+    doc.setDrawColor(...pdfRenk)
     doc.setLineWidth(0.8)
     doc.line(10, pageH - 16, 200, pageH - 16)
     doc.setTextColor(150, 150, 150)
     doc.setFontSize(8)
-    doc.text(`${firmaAdi} · Tel: ${firmaTel} · ${firmaEmail}`, 105, pageH - 10, { align: 'center' })
-    doc.text(`${firmaAdres} · ${firmaWeb}`, 105, pageH - 4, { align: 'center' })
+    doc.text(`${s.firma_adi} · Tel: ${s.firma_telefon} · ${s.firma_email}`, 105, pageH - 10, { align: 'center' })
+    doc.text(`${s.firma_adres} · ${s.firma_web}`, 105, pageH - 4, { align: 'center' })
 
     doc.save(`is-emri-${order.order_number}.pdf`)
   }
@@ -372,7 +382,6 @@ const firmaWeb = s.firma_web
 
         <div className="space-y-4">
 
-          {/* Müşteri */}
           <div className={cardCls}>
             <p className={`text-xs uppercase tracking-wide mb-3 ${d ? 'text-[#444]' : 'text-gray-400'}`}>Müşteri</p>
             <p className={`font-medium text-sm ${d ? 'text-white' : 'text-gray-900'}`}>{order.customers?.full_name}</p>
@@ -398,7 +407,6 @@ const firmaWeb = s.firma_web
             )}
           </div>
 
-          {/* Cihaz */}
           <div className={cardCls}>
             <p className={`text-xs uppercase tracking-wide mb-3 ${d ? 'text-[#444]' : 'text-gray-400'}`}>Cihaz</p>
             <p className={`font-medium text-sm ${d ? 'text-white' : 'text-gray-900'}`}>{order.devices?.brand} {order.devices?.model}</p>
@@ -406,13 +414,11 @@ const firmaWeb = s.firma_web
             <p className={`text-xs ${d ? 'text-[#555]' : 'text-gray-400'}`}>Teknisyen: {order.technicians?.full_name ?? '—'}</p>
           </div>
 
-          {/* Sorun */}
           <div className={cardCls}>
             <p className={`text-xs uppercase tracking-wide mb-2 ${d ? 'text-[#444]' : 'text-gray-400'}`}>Sorun</p>
             <p className={`text-sm ${d ? 'text-[#aaa]' : 'text-gray-600'}`}>{order.problem_description}</p>
           </div>
 
-          {/* Fotoğraflar */}
           <div className={cardCls}>
             <div className="flex items-center justify-between mb-3">
               <p className={`text-xs uppercase tracking-wide ${d ? 'text-[#444]' : 'text-gray-400'}`}>Fotoğraflar</p>
@@ -438,7 +444,6 @@ const firmaWeb = s.firma_web
             )}
           </div>
 
-          {/* Durum güncelle */}
           <div className={cardCls + ' space-y-3'}>
             <p className={`text-xs uppercase tracking-wide ${d ? 'text-[#444]' : 'text-gray-400'}`}>Durum Güncelle</p>
             <select value={status} onChange={e => setStatus(e.target.value)} className={inputCls}>
@@ -455,7 +460,6 @@ const firmaWeb = s.firma_web
           </div>
         </div>
 
-        {/* Sağ kolon */}
         <div className="lg:col-span-2">
           <div className={cardCls}>
             <p className={`text-xs uppercase tracking-wide mb-4 ${d ? 'text-[#444]' : 'text-gray-400'}`}>Maliyet Kalemleri</p>
