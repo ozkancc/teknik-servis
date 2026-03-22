@@ -371,22 +371,20 @@ export default function WorkOrderDetailPage() {
       tr(`${s.firma_adres} · ${s.firma_web}`),
       105, pageH - 5, { align: 'center' }
     )
-// QR Kod
+// QR Kod — sağ üst, iş emri bilgilerinin altına
     const takipUrl = `${window.location.origin}/takip`
     const qrDataUrl = await QRCode.toDataURL(takipUrl, {
       width: 80,
       margin: 1,
       color: { dark: '#000000', light: '#ffffff' }
     })
-    const qrX = 168
-    const qrY = pageH - 52
-    doc.addImage(qrDataUrl, 'PNG', qrX, qrY, 22, 22)
+    const qrSize = 20
+    const qrX = 196 - qrSize
+    const qrY = 34
+    doc.addImage(qrDataUrl, 'PNG', qrX, qrY, qrSize, qrSize)
     doc.setFontSize(6)
     doc.setTextColor(150, 150, 150)
-    doc.text('Takip icin', qrX + 11, qrY + 24, { align: 'center' })
-    doc.text('okutun', qrX + 11, qrY + 27, { align: 'center' })
-    doc.save(`is-emri-${order.order_number}.pdf`)
-  }
+    doc.text('Takip icin okutun', qrX + qrSize / 2, qrY + qrSize + 3, { align: 'center' })
 
   if (loading) return (
     <div className={`min-h-screen flex items-center justify-center ${d ? 'bg-[#0f0f0f]' : 'bg-gray-50'}`}>
