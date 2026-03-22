@@ -8,6 +8,7 @@ import { useTheme } from '@/app/context/ThemeContext'
 import { useSettings } from '@/app/hooks/useSettings'
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
+import * as QRCode from 'qrcode'
 
 type WorkOrderItem = {
   id: string
