@@ -262,15 +262,31 @@ export default function WorkOrderDetailPage() {
     const logoH = (logoImg.naturalHeight || 200) * ratio
     doc.addImage(logoData, 'PNG', 10, 8, logoW, logoH)
 
+    // QR Kod — sağ üst
+    const takipUrl = `${window.location.origin}/takip`
+    const qrDataUrl = await QRCode.toDataURL(takipUrl, {
+      width: 80,
+      margin: 1,
+      color: { dark: '#000000', light: '#ffffff' }
+    })
+    const qrSize = 20
+    const qrX = 196 - qrSize
+    const qrY = 8
+    doc.addImage(qrDataUrl, 'PNG', qrX, qrY, qrSize, qrSize)
+    doc.setFontSize(6)
+    doc.setTextColor(150, 150, 150)
+    doc.text('Takip icin okutun', qrX + qrSize / 2, qrY + qrSize + 3, { align: 'center' })
+
+    // İş emri bilgileri
     doc.setTextColor(...koyu)
     doc.setFontSize(15)
     doc.setFont('helvetica', 'bold')
-    doc.text(`Is Emri #${order.order_number}`, 196, 14, { align: 'right' })
+    doc.text(`Is Emri #${order.order_number}`, qrX - 2, 14, { align: 'right' })
     doc.setFontSize(9)
     doc.setFont('helvetica', 'normal')
     doc.setTextColor(100, 100, 100)
-    doc.text(`Tarih: ${new Date(order.created_at).toLocaleDateString('tr-TR')}`, 196, 22, { align: 'right' })
-    doc.text(`Durum: ${tr(STATUS[order.status]?.label ?? order.status)}`, 196, 29, { align: 'right' })
+    doc.text(`Tarih: ${new Date(order.created_at).toLocaleDateString('tr-TR')}`, qrX - 2, 22, { align: 'right' })
+    doc.text(`Durum: ${tr(STATUS[order.status]?.label ?? order.status)}`, qrX - 2, 29, { align: 'right' })
 
     doc.setDrawColor(...pdfRenk)
     doc.setLineWidth(0.8)
@@ -371,20 +387,9 @@ export default function WorkOrderDetailPage() {
       tr(`${s.firma_adres} · ${s.firma_web}`),
       105, pageH - 5, { align: 'center' }
     )
-// QR Kod — sağ üst, iş emri bilgilerinin altına
-    const takipUrl = `${window.location.origin}/takip`
-    const qrDataUrl = await QRCode.toDataURL(takipUrl, {
-      width: 80,
-      margin: 1,
-      color: { dark: '#000000', light: '#ffffff' }
-    })
-    const qrSize = 20
-    const qrX = 196 - qrSize
-    const qrY = 34
-    doc.addImage(qrDataUrl, 'PNG', qrX, qrY, qrSize, qrSize)
-    doc.setFontSize(6)
-    doc.setTextColor(150, 150, 150)
-    doc.text('Takip icin okutun', qrX + qrSize / 2, qrY + qrSize + 3, { align: 'center' })
+
+    doc.save(`is-emri-${order.order_number}.pdf`)
+  }
 
   if (loading) return (
     <div className={`min-h-screen flex items-center justify-center ${d ? 'bg-[#0f0f0f]' : 'bg-gray-50'}`}>
