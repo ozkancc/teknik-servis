@@ -228,6 +228,108 @@ export default function WorkOrderDetailPage() {
     }, 0)
   }
 
+  async function generateLabel() {
+    if (!order) return
+
+    const pdfRenk = hexToRgb(s.pdf_renk || '#dc2626')
+
+    const logoSrc = s.logo_url || '/logo.png'
+    const logoImg = new window.Image()
+    logoImg.crossOrigin = 'anonymous'
+    logoImg.src = logoSrc
+    await new Promise<void>((resolve) => {
+      logoImg.onload = () => resolve()
+      logoImg.onerror = () => resolve()
+      setTimeout(resolve, 3000)
+    })
+    const canvas = document.createElement('canvas')
+    canvas.width = logoImg.naturalWidth || 400
+    canvas.height = logoImg.naturalHeight || 200
+    const ctx = canvas.getContext('2d')!
+    ctx.drawImage(logoImg, 0, 0)
+    const logoData = canvas.toDataURL('image/png')
+
+    const takipUrl = `${window.location.origin}/takip`
+    const qrDataUrl = await QRCode.toDataURL(takipUrl, {
+      width: 60,
+      margin: 0,
+      color: { dark: '#000000', light: '#ffffff' }
+    })
+
+    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
+    const pageW = 210
+    const pageH = 297
+
+    const labelW = 90
+    const labelH = 35
+    const cols = 2
+    const marginX = (pageW - cols * labelW) / 2
+    const marginY = 15
+    const gapY = 3
+
+    const rows = Math.floor((pageH - marginY * 2) / (labelH + gapY))
+
+    for (let row = 0; row < rows; row++) {
+      for (let col = 0; col < cols; col++) {
+        const x = marginX + col * labelW
+        const y = marginY + row * (labelH + gapY)
+
+        doc.setDrawColor(200, 200, 200)
+        doc.setLineWidth(0.3)
+        doc.roundedRect(x, y, labelW, labelH, 2, 2, 'S')
+
+        const logoMaxW = 22
+        const logoMaxH = 10
+        const logoRatio = Math.min(logoMaxW / (logoImg.naturalWidth || 400), logoMaxH / (logoImg.naturalHeight || 200))
+        const logoW = (logoImg.naturalWidth || 400) * logoRatio
+        const logoH = (logoImg.naturalHeight || 200) * logoRatio
+        doc.addImage(logoData, 'PNG', x + 2, y + 2, logoW, logoH)
+
+        doc.setDrawColor(...pdfRenk)
+        doc.setLineWidth(0.4)
+        doc.line(x + 2, y + 13, x + labelW - 22, y + 13)
+
+        doc.addImage(qrDataUrl, 'PNG', x + labelW - 18, y + 2, 16, 16)
+        doc.setFontSize(4.5)
+        doc.setTextColor(150, 150, 150)
+        doc.text('Takip', x + labelW - 10, y + 19.5, { align: 'center' })
+
+        doc.setFontSize(7)
+        doc.setFont('helvetica', 'bold')
+        doc.setTextColor(...pdfRenk)
+        doc.text(`#${order.order_number}`, x + labelW - 20, y + 6, { align: 'right' })
+
+        doc.setFontSize(7.5)
+        doc.setFont('helvetica', 'bold')
+        doc.setTextColor(15, 15, 15)
+        doc.text(tr(order.customers?.full_name ?? ''), x + 2, y + 17)
+
+        doc.setFontSize(6.5)
+        doc.setFont('helvetica', 'normal')
+        doc.setTextColor(80, 80, 80)
+        doc.text(tr(order.customers?.phone ?? ''), x + 2, y + 22)
+
+        doc.setFontSize(6.5)
+        doc.setFont('helvetica', 'bold')
+        doc.setTextColor(15, 15, 15)
+        doc.text(tr(`${order.devices?.brand ?? ''} ${order.devices?.model ?? ''}`), x + 2, y + 27)
+
+        doc.setFontSize(6)
+        doc.setFont('helvetica', 'normal')
+        doc.setTextColor(100, 100, 100)
+        doc.text(tr(`Seri: ${order.devices?.serial_number ?? '-'}`), x + 2, y + 31)
+
+        const sorun = tr(order.problem_description ?? '')
+        const sorunKisa = sorun.length > 35 ? sorun.substring(0, 35) + '...' : sorun
+        doc.setFontSize(5.5)
+        doc.setTextColor(120, 120, 120)
+        doc.text(sorunKisa, x + 2, y + labelH - 2, { maxWidth: labelW - 22 })
+      }
+    }
+
+    doc.save(`etiket-${order.order_number}.pdf`)
+  }
+
   async function generatePDF() {
     if (!order) return
 
@@ -246,125 +348,6 @@ export default function WorkOrderDetailPage() {
       setTimeout(resolve, 3000)
     })
 
-async function generateLabel() {
-    if (!order) return
-
-    const pdfRenk = hexToRgb(s.pdf_renk || '#dc2626')
-
-    // Logo yükle
-    const logoSrc = s.logo_url || '/logo.png'
-    const logoImg = new window.Image()
-    logoImg.crossOrigin = 'anonymous'
-    logoImg.src = logoSrc
-    await new Promise<void>((resolve) => {
-      logoImg.onload = () => resolve()
-      logoImg.onerror = () => resolve()
-      setTimeout(resolve, 3000)
-    })
-    const canvas = document.createElement('canvas')
-    canvas.width = logoImg.naturalWidth || 400
-    canvas.height = logoImg.naturalHeight || 200
-    const ctx = canvas.getContext('2d')!
-    ctx.drawImage(logoImg, 0, 0)
-    const logoData = canvas.toDataURL('image/png')
-
-    // QR kod
-    const takipUrl = `${window.location.origin}/takip`
-    const qrDataUrl = await QRCode.toDataURL(takipUrl, {
-      width: 60,
-      margin: 0,
-      color: { dark: '#000000', light: '#ffffff' }
-    })
-
-    // A4 boyutu mm cinsinden
-    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
-    const pageW = 210
-    const pageH = 297
-
-    // Etiket boyutları
-    const labelW = 90  // mm
-    const labelH = 35  // mm
-    const cols = 2
-    const marginX = (pageW - cols * labelW) / 2  // 15mm her yanda
-    const marginY = 15
-    const gapX = 0
-    const gapY = 3
-
-    // Kaç etiket sığar
-    const rows = Math.floor((pageH - marginY * 2) / (labelH + gapY))
-
-    // Tek iş emri için etiket çiz — tüm sayfayı aynı etiketle doldur
-    for (let row = 0; row < rows; row++) {
-      for (let col = 0; col < cols; col++) {
-        const x = marginX + col * (labelW + gapX)
-        const y = marginY + row * (labelH + gapY)
-
-        // Etiket çerçevesi
-        doc.setDrawColor(200, 200, 200)
-        doc.setLineWidth(0.3)
-        doc.roundedRect(x, y, labelW, labelH, 2, 2, 'S')
-
-        // Sol üst — logo
-        const logoMaxW = 22
-        const logoMaxH = 10
-        const logoRatio = Math.min(logoMaxW / (logoImg.naturalWidth || 400), logoMaxH / (logoImg.naturalHeight || 200))
-        const logoW = (logoImg.naturalWidth || 400) * logoRatio
-        const logoH = (logoImg.naturalHeight || 200) * logoRatio
-        doc.addImage(logoData, 'PNG', x + 2, y + 2, logoW, logoH)
-
-        // Üst çizgi ayırıcı
-        doc.setDrawColor(...pdfRenk)
-        doc.setLineWidth(0.5)
-        doc.line(x + 2, y + 13, x + labelW - 22, y + 13)
-
-        // QR kod — sağ taraf
-        doc.addImage(qrDataUrl, 'PNG', x + labelW - 18, y + 2, 16, 16)
-        doc.setFontSize(4.5)
-        doc.setTextColor(150, 150, 150)
-        doc.text('Takip', x + labelW - 10, y + 19.5, { align: 'center' })
-
-        // İş emri no — sağ üst logo yanında
-        doc.setFontSize(7)
-        doc.setFont('helvetica', 'bold')
-        doc.setTextColor(...hexToRgb(s.pdf_renk || '#dc2626'))
-        doc.text(`#${order.order_number}`, x + labelW - 20, y + 6, { align: 'right' })
-
-        // Müşteri adı
-        doc.setFontSize(7.5)
-        doc.setFont('helvetica', 'bold')
-        doc.setTextColor(15, 15, 15)
-        doc.text(tr(order.customers?.full_name ?? ''), x + 2, y + 17)
-
-        // Telefon
-        doc.setFontSize(6.5)
-        doc.setFont('helvetica', 'normal')
-        doc.setTextColor(80, 80, 80)
-        doc.text(tr(order.customers?.phone ?? ''), x + 2, y + 22)
-
-        // Cihaz
-        doc.setFontSize(6.5)
-        doc.setFont('helvetica', 'bold')
-        doc.setTextColor(15, 15, 15)
-        doc.text(tr(`${order.devices?.brand ?? ''} ${order.devices?.model ?? ''}`), x + 2, y + 27)
-
-        // Seri no
-        doc.setFontSize(6)
-        doc.setFont('helvetica', 'normal')
-        doc.setTextColor(100, 100, 100)
-        doc.text(tr(`Seri: ${order.devices?.serial_number ?? '-'}`), x + 2, y + 31)
-
-        // Sorun — kısa
-        const sorun = tr(order.problem_description ?? '')
-        const sorunKisa = sorun.length > 35 ? sorun.substring(0, 35) + '...' : sorun
-        doc.setFontSize(5.5)
-        doc.setFont('helvetica', 'normal')
-        doc.setTextColor(120, 120, 120)
-        doc.text(sorunKisa, x + 2, y + labelH - 2, { maxWidth: labelW - 22 })
-      }
-    }
-
-    doc.save(`etiket-${order.order_number}.pdf`)
-  }
     const canvas = document.createElement('canvas')
     canvas.width = logoImg.naturalWidth || 400
     canvas.height = logoImg.naturalHeight || 200
@@ -381,7 +364,6 @@ async function generateLabel() {
     const logoH = (logoImg.naturalHeight || 200) * ratio
     doc.addImage(logoData, 'PNG', 10, 8, logoW, logoH)
 
-    // QR Kod — sağ üst
     const takipUrl = `${window.location.origin}/takip`
     const qrDataUrl = await QRCode.toDataURL(takipUrl, {
       width: 80,
@@ -396,8 +378,7 @@ async function generateLabel() {
     doc.setTextColor(150, 150, 150)
     doc.text('Takip icin okutun', qrX + qrSize / 2, qrY + qrSize + 3, { align: 'center' })
 
-    // İş emri bilgileri
-    doc.setTextColor(...koyu)
+    doc.setTextColor(15, 15, 15)
     doc.setFontSize(15)
     doc.setFont('helvetica', 'bold')
     doc.text(`Is Emri #${order.order_number}`, qrX - 2, 14, { align: 'right' })
@@ -407,17 +388,17 @@ async function generateLabel() {
     doc.text(`Tarih: ${new Date(order.created_at).toLocaleDateString('tr-TR')}`, qrX - 2, 22, { align: 'right' })
     doc.text(`Durum: ${tr(STATUS[order.status]?.label ?? order.status)}`, qrX - 2, 29, { align: 'right' })
 
-    doc.setDrawColor(...pdfRenk)
+    doc.setDrawColor(...hexToRgb(s.pdf_renk || '#dc2626'))
     doc.setLineWidth(0.8)
     doc.line(10, 38, 200, 38)
 
     const rowY = 46
-    doc.setFillColor(...acik)
+    doc.setFillColor(245, 245, 245)
     doc.roundedRect(10, rowY, 88, 40, 2, 2, 'F')
     doc.setFontSize(7)
     doc.setTextColor(120, 120, 120)
     doc.text('MUSTERI', 14, rowY + 6)
-    doc.setTextColor(...koyu)
+    doc.setTextColor(15, 15, 15)
     doc.setFontSize(10)
     doc.setFont('helvetica', 'bold')
     doc.text(tr(order.customers?.full_name ?? ''), 14, rowY + 13)
@@ -427,12 +408,12 @@ async function generateLabel() {
     doc.text(tr(order.customers?.email ?? ''), 14, rowY + 26)
     doc.text(tr(order.customers?.address ?? ''), 14, rowY + 32, { maxWidth: 80 })
 
-    doc.setFillColor(...acik)
+    doc.setFillColor(245, 245, 245)
     doc.roundedRect(104, rowY, 88, 40, 2, 2, 'F')
     doc.setFontSize(7)
     doc.setTextColor(120, 120, 120)
     doc.text('CIHAZ', 108, rowY + 6)
-    doc.setTextColor(...koyu)
+    doc.setTextColor(15, 15, 15)
     doc.setFontSize(10)
     doc.setFont('helvetica', 'bold')
     doc.text(tr(`${order.devices?.brand ?? ''} ${order.devices?.model ?? ''}`), 108, rowY + 13)
@@ -442,23 +423,23 @@ async function generateLabel() {
     doc.text(tr(`Teknisyen: ${order.technicians?.full_name ?? '-'}`), 108, rowY + 26)
 
     let curY = rowY + 48
-    doc.setFillColor(...acik)
+    doc.setFillColor(245, 245, 245)
     doc.roundedRect(10, curY, 182, 16, 2, 2, 'F')
     doc.setFontSize(7)
     doc.setTextColor(120, 120, 120)
     doc.text('SORUN', 14, curY + 6)
-    doc.setTextColor(...koyu)
+    doc.setTextColor(15, 15, 15)
     doc.setFontSize(9)
     doc.text(tr(order.problem_description ?? ''), 14, curY + 12, { maxWidth: 174 })
 
     if (order.diagnosis) {
       curY += 22
-      doc.setFillColor(...acik)
+      doc.setFillColor(245, 245, 245)
       doc.roundedRect(10, curY, 182, 16, 2, 2, 'F')
       doc.setFontSize(7)
       doc.setTextColor(120, 120, 120)
       doc.text('TESHIS', 14, curY + 6)
-      doc.setTextColor(...koyu)
+      doc.setTextColor(15, 15, 15)
       doc.setFontSize(9)
       doc.text(tr(order.diagnosis), 14, curY + 12, { maxWidth: 174 })
     }
@@ -481,7 +462,7 @@ async function generateLabel() {
       foot: [['', '', '', 'GENEL TOPLAM', calcTotal().toFixed(2) + ' TL']],
       styles: { fontSize: 9, cellPadding: 4 },
       headStyles: { fillColor: pdfRenk, textColor: 255, fontStyle: 'bold', fontSize: 8 },
-      footStyles: { fontStyle: 'bold', fillColor: acik, textColor: koyu },
+      footStyles: { fontStyle: 'bold', fillColor: [245, 245, 245], textColor: [15, 15, 15] },
       alternateRowStyles: { fillColor: [250, 250, 250] },
       columnStyles: {
         0: { cellWidth: 70 },
@@ -534,20 +515,20 @@ async function generateLabel() {
             {STATUS[order.status]?.label}
           </span>
         </div>
-       <div className="flex gap-2">
-  <button onClick={generatePDF}
-    className="bg-blue-600 hover:bg-blue-500 text-white text-xs px-3 py-1.5 rounded-lg transition">
-    PDF İndir
-  </button>
-  <button onClick={generateLabel}
-    className={`text-xs px-3 py-1.5 rounded-lg transition border ${d ? 'bg-white/10 hover:bg-white/15 text-white border-white/10' : 'bg-gray-50 hover:bg-gray-100 text-gray-700 border-gray-200'}`}>
-    Etiket Yazdır
-  </button>
-  <button onClick={deleteOrder}
-    className="bg-red-500/10 hover:bg-red-500/20 text-red-500 border border-red-500/20 text-xs px-3 py-1.5 rounded-lg transition">
-    Sil
-  </button>
-</div>
+        <div className="flex gap-2">
+          <button onClick={generatePDF}
+            className="bg-blue-600 hover:bg-blue-500 text-white text-xs px-3 py-1.5 rounded-lg transition">
+            PDF İndir
+          </button>
+          <button onClick={generateLabel}
+            className={`text-xs px-3 py-1.5 rounded-lg transition border ${d ? 'bg-white/10 hover:bg-white/15 text-white border-white/10' : 'bg-gray-50 hover:bg-gray-100 text-gray-700 border-gray-200'}`}>
+            Etiket Yazdır
+          </button>
+          <button onClick={deleteOrder}
+            className="bg-red-500/10 hover:bg-red-500/20 text-red-500 border border-red-500/20 text-xs px-3 py-1.5 rounded-lg transition">
+            Sil
+          </button>
+        </div>
       </div>
 
       <div className="px-4 sm:px-6 py-6 max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-4">
