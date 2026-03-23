@@ -82,6 +82,8 @@ export default function WorkOrderDetailPage() {
   const [newPrice, setNewPrice] = useState('')
   const [newDiscount, setNewDiscount] = useState('0')
   const [saving, setSaving] = useState(false)
+  const [showLabelModal, setShowLabelModal] = useState(false)
+  const [labelCount, setLabelCount] = useState(3)
 
   const inputCls = `w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 ${d ? 'bg-[#111] border-white/[0.08] text-white placeholder-[#444]' : 'bg-white border-gray-200 text-gray-900 placeholder-gray-400'}`
   const cardCls = `rounded-xl border p-4 ${d ? 'bg-[#1a1a1a] border-white/[0.06]' : 'bg-white border-gray-100'}`
@@ -228,7 +230,7 @@ export default function WorkOrderDetailPage() {
     }, 0)
   }
 
-  async function generateLabel() {
+  async function generateLabel(count: number = 1) {
     if (!order) return
 
     const pdfRenk = hexToRgb(s.pdf_renk || '#dc2626')
@@ -267,10 +269,20 @@ export default function WorkOrderDetailPage() {
     const marginY = 15
     const gapY = 3
 
-    const rows = Math.floor((pageH - marginY * 2) / (labelH + gapY))
+    const rowsPerPage = Math.floor((pageH - marginY * 2) / (labelH + gapY))
+    const labelsPerPage = rowsPerPage * cols
 
-    for (let row = 0; row < rows; row++) {
-      for (let col = 0; col < cols; col++) {
+    let printed = 0
+    let page = 0
+
+    while (printed < count) {
+      if (page > 0) doc.addPage()
+
+      const labelsThisPage = Math.min(count - printed, labelsPerPage)
+
+      for (let i = 0; i < labelsThisPage; i++) {
+        const row = Math.floor(i / cols)
+        const col = i % cols
         const x = marginX + col * labelW
         const y = marginY + row * (labelH + gapY)
 
@@ -324,7 +336,11 @@ export default function WorkOrderDetailPage() {
         doc.setFontSize(5.5)
         doc.setTextColor(120, 120, 120)
         doc.text(sorunKisa, x + 2, y + labelH - 2, { maxWidth: labelW - 22 })
+
+        printed++
       }
+
+      page++
     }
 
     doc.save(`etiket-${order.order_number}.pdf`)
@@ -333,8 +349,6 @@ export default function WorkOrderDetailPage() {
   async function generatePDF() {
     if (!order) return
 
-    const koyu = [15, 15, 15] as [number, number, number]
-    const acik = [245, 245, 245] as [number, number, number]
     const pdfRenk = hexToRgb(s.pdf_renk || '#dc2626')
 
     const logoSrc = s.logo_url || '/logo.png'
@@ -388,7 +402,7 @@ export default function WorkOrderDetailPage() {
     doc.text(`Tarih: ${new Date(order.created_at).toLocaleDateString('tr-TR')}`, qrX - 2, 22, { align: 'right' })
     doc.text(`Durum: ${tr(STATUS[order.status]?.label ?? order.status)}`, qrX - 2, 29, { align: 'right' })
 
-    doc.setDrawColor(...hexToRgb(s.pdf_renk || '#dc2626'))
+    doc.setDrawColor(...pdfRenk)
     doc.setLineWidth(0.8)
     doc.line(10, 38, 200, 38)
 
@@ -520,7 +534,7 @@ export default function WorkOrderDetailPage() {
             className="bg-blue-600 hover:bg-blue-500 text-white text-xs px-3 py-1.5 rounded-lg transition">
             PDF İndir
           </button>
-          <button onClick={generateLabel}
+          <button onClick={() => setShowLabelModal(true)}
             className={`text-xs px-3 py-1.5 rounded-lg transition border ${d ? 'bg-white/10 hover:bg-white/15 text-white border-white/10' : 'bg-gray-50 hover:bg-gray-100 text-gray-700 border-gray-200'}`}>
             Etiket Yazdır
           </button>
@@ -683,6 +697,52 @@ export default function WorkOrderDetailPage() {
         <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 p-4" onClick={() => setLightbox(null)}>
           <img src={lightbox} alt="foto" className="max-w-full max-h-full rounded-xl object-contain" />
           <button className="absolute top-4 right-4 text-white text-2xl" onClick={() => setLightbox(null)}>✕</button>
+        </div>
+      )}
+
+      {showLabelModal && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+          <div className={`rounded-2xl border p-6 w-full max-w-xs ${d ? 'bg-[#1a1a1a] border-white/[0.08]' : 'bg-white border-gray-200'}`}>
+            <h3 className={`text-sm font-medium mb-2 ${d ? 'text-white' : 'text-gray-900'}`}>Kaç Adet Etiket?</h3>
+            <p className={`text-xs mb-4 ${d ? 'text-[#555]' : 'text-gray-400'}`}>
+              Cihaz, çanta, adaptör gibi aksesuarlar için adet girin.
+            </p>
+            <div className="flex items-center gap-3 mb-6">
+              <button
+                onClick={() => setLabelCount(prev => Math.max(1, prev - 1))}
+                className={`w-9 h-9 rounded-lg border text-lg transition ${d ? 'border-white/10 text-white hover:bg-white/10' : 'border-gray-200 text-gray-700 hover:bg-gray-50'}`}>
+                −
+              </button>
+              <input
+                type="number"
+                min="1"
+                max="100"
+                value={labelCount}
+                onChange={e => setLabelCount(Math.max(1, parseInt(e.target.value) || 1))}
+                className={`flex-1 text-center border rounded-lg px-3 py-2 text-lg font-medium focus:outline-none focus:ring-1 focus:ring-blue-500 ${d ? 'bg-[#111] border-white/[0.08] text-white' : 'bg-white border-gray-200 text-gray-900'}`}
+              />
+              <button
+                onClick={() => setLabelCount(prev => Math.min(100, prev + 1))}
+                className={`w-9 h-9 rounded-lg border text-lg transition ${d ? 'border-white/10 text-white hover:bg-white/10' : 'border-gray-200 text-gray-700 hover:bg-gray-50'}`}>
+                +
+              </button>
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={() => {
+                  setShowLabelModal(false)
+                  generateLabel(labelCount)
+                }}
+                className="flex-1 bg-blue-600 hover:bg-blue-500 text-white text-sm py-2.5 rounded-lg transition font-medium">
+                Yazdır
+              </button>
+              <button
+                onClick={() => setShowLabelModal(false)}
+                className={`flex-1 text-sm py-2.5 rounded-lg transition border ${d ? 'border-white/10 text-white hover:bg-white/10' : 'border-gray-200 text-gray-700 hover:bg-gray-50'}`}>
+                İptal
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
