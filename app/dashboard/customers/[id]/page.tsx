@@ -22,6 +22,7 @@ type Device = {
   model: string
   serial_number: string
   notes: string
+  device_type: string
 }
 
 type WorkOrder = {
@@ -44,6 +45,16 @@ const STATUS: Record<string, { label: string; cls: string }> = {
   iptal:           { label: 'İptal',           cls: 'bg-red-500/10 text-red-500 border-red-500/20' },
 }
 
+const DEVICE_TYPES: Record<string, string> = {
+  notebook: 'Notebook',
+  tablet: 'Tablet',
+  cep_telefonu: 'Cep Telefonu',
+  oem_kasa: 'OEM Kasa',
+  kasa: 'Kasa',
+  elektronik_kart: 'Elektronik Kart',
+  diger: 'Diğer',
+}
+
 export default function CustomerDetailPage() {
   const { id } = useParams()
   const router = useRouter()
@@ -56,7 +67,6 @@ export default function CustomerDetailPage() {
   const [orders, setOrders] = useState<WorkOrder[]>([])
   const [loading, setLoading] = useState(true)
 
-  // Müşteri düzenleme
   const [editing, setEditing] = useState(false)
   const [name, setName] = useState('')
   const [phone, setPhone] = useState('')
@@ -64,7 +74,6 @@ export default function CustomerDetailPage() {
   const [address, setAddress] = useState('')
   const [saving, setSaving] = useState(false)
 
-  // Cihaz ekleme/düzenleme
   const [showDeviceForm, setShowDeviceForm] = useState(false)
   const [editingDevice, setEditingDevice] = useState<Device | null>(null)
   const [devBrand, setDevBrand] = useState('')
@@ -138,21 +147,21 @@ export default function CustomerDetailPage() {
     setSavingDevice(true)
     if (editingDevice) {
       await supabase.from('devices').update({
-  brand: devBrand,
-  model: devModel,
-  serial_number: devSerial,
-  notes: devNotes,
-  device_type: devType,
-}).eq('id', editingDevice.id)
+        brand: devBrand,
+        model: devModel,
+        serial_number: devSerial,
+        notes: devNotes,
+        device_type: devType,
+      }).eq('id', editingDevice.id)
     } else {
       await supabase.from('devices').insert({
-  customer_id: id,
-  brand: devBrand,
-  model: devModel,
-  serial_number: devSerial,
-  notes: devNotes,
-  device_type: devType,
-})
+        customer_id: id,
+        brand: devBrand,
+        model: devModel,
+        serial_number: devSerial,
+        notes: devNotes,
+        device_type: devType,
+      })
     }
     setShowDeviceForm(false)
     setEditingDevice(null)
@@ -247,8 +256,7 @@ export default function CustomerDetailPage() {
           <div className={cardCls}>
             <div className="flex items-center justify-between mb-3">
               <p className={`text-xs uppercase tracking-wide ${d ? 'text-[#444]' : 'text-gray-400'}`}>Cihazlar</p>
-              <button
-                onClick={() => openDeviceForm()}
+              <button onClick={() => openDeviceForm()}
                 className="bg-blue-600 hover:bg-blue-500 text-white text-xs px-3 py-1.5 rounded-lg transition">
                 + Ekle
               </button>
@@ -259,19 +267,15 @@ export default function CustomerDetailPage() {
                 <p className={`text-xs font-medium mb-2 ${d ? 'text-white' : 'text-gray-900'}`}>
                   {editingDevice ? 'Cihazı Düzenle' : 'Yeni Cihaz Ekle'}
                 </p>
+                <select value={devType} onChange={e => setDevType(e.target.value)} className={inputCls}>
+                  {Object.entries(DEVICE_TYPES).map(([val, label]) => (
+                    <option key={val} value={val}>{label}</option>
+                  ))}
+                </select>
                 <div className="grid grid-cols-2 gap-2">
                   <input value={devBrand} onChange={e => setDevBrand(e.target.value)} placeholder="Marka *" className={inputCls} />
                   <input value={devModel} onChange={e => setDevModel(e.target.value)} placeholder="Model *" className={inputCls} />
                 </div>
-                <select value={devType} onChange={e => setDevType(e.target.value)} className={inputCls}>
-  <option value="notebook">Notebook</option>
-  <option value="tablet">Tablet</option>
-  <option value="cep_telefonu">Cep Telefonu</option>
-  <option value="oem_kasa">OEM Kasa</option>
-  <option value="kasa">Kasa</option>
-  <option value="elektronik_kart">Elektronik Kart</option>
-  <option value="diger">Diğer</option>
-</select>
                 <input value={devSerial} onChange={e => setDevSerial(e.target.value)} placeholder="Seri Numarası" className={inputCls} />
                 <input value={devNotes} onChange={e => setDevNotes(e.target.value)} placeholder="Notlar" className={inputCls} />
                 <div className="flex gap-2">
@@ -295,19 +299,12 @@ export default function CustomerDetailPage() {
                   <div key={dv.id} className={`rounded-lg p-3 ${d ? 'bg-[#111]' : 'bg-gray-50'}`}>
                     <div className="flex items-start justify-between">
                       <div>
-                        <p className={`text-xs font-medium ${d ? 'text-white' : 'text-gray-900'}`}>{dv.brand} {dv.model}</p>
-<span className={`text-[10px] px-1.5 py-0.5 rounded-full border ${d ? 'bg-white/5 border-white/10 text-[#666]' : 'bg-gray-100 border-gray-200 text-gray-400'}`}>
-  {({
-    notebook: 'Notebook',
-    tablet: 'Tablet',
-    cep_telefonu: 'Cep Telefonu',
-    oem_kasa: 'OEM Kasa',
-    kasa: 'Kasa',
-    elektronik_kart: 'Elektronik Kart',
-    diger: 'Diğer',
-  } as Record<string, string>)[dv.device_type] ?? 'Diğer'}
-</span>
-
+                        <div className="flex items-center gap-2 mb-0.5">
+                          <p className={`text-xs font-medium ${d ? 'text-white' : 'text-gray-900'}`}>{dv.brand} {dv.model}</p>
+                          <span className={`text-[10px] px-1.5 py-0.5 rounded-full border ${d ? 'bg-white/5 border-white/10 text-[#666]' : 'bg-gray-100 border-gray-200 text-gray-400'}`}>
+                            {DEVICE_TYPES[dv.device_type] ?? 'Diğer'}
+                          </span>
+                        </div>
                         {dv.serial_number && (
                           <p className={`text-[11px] font-mono mt-0.5 ${d ? 'text-[#444]' : 'text-gray-400'}`}>{dv.serial_number}</p>
                         )}
@@ -315,7 +312,7 @@ export default function CustomerDetailPage() {
                           <p className={`text-[11px] mt-0.5 ${d ? 'text-[#555]' : 'text-gray-400'}`}>{dv.notes}</p>
                         )}
                       </div>
-                      <div className="flex gap-2 ml-2">
+                      <div className="flex gap-2 ml-2 shrink-0">
                         <button onClick={() => openDeviceForm(dv)}
                           className={`text-[11px] transition ${d ? 'text-[#444] hover:text-white' : 'text-gray-400 hover:text-gray-700'}`}>
                           Düzenle
@@ -333,7 +330,7 @@ export default function CustomerDetailPage() {
           </div>
         </div>
 
-        {/* Sağ kolon — İş emirleri */}
+        {/* Sağ kolon */}
         <div className="lg:col-span-2">
           <div className={cardCls}>
             <div className="flex items-center justify-between mb-4">
