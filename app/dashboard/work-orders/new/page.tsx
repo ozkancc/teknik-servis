@@ -10,8 +10,18 @@ import Navbar from '@/components/Navbar'
 const BarcodeScanner = dynamic(() => import('@/components/BarcodeScanner'), { ssr: false })
 
 type Customer = { id: string; full_name: string; phone: string }
-type Device = { id: string; brand: string; model: string }
+type Device = { id: string; brand: string; model: string; device_type: string }
 type Technician = { id: string; full_name: string }
+
+const DEVICE_TYPES: Record<string, string> = {
+  notebook: 'Notebook',
+  tablet: 'Tablet',
+  cep_telefonu: 'Cep Telefonu',
+  oem_kasa: 'OEM Kasa',
+  kasa: 'Kasa',
+  elektronik_kart: 'Elektronik Kart',
+  diger: 'Diğer',
+}
 
 export default function NewWorkOrderPage() {
   const [customers, setCustomers] = useState<Customer[]>([])
@@ -38,6 +48,7 @@ export default function NewWorkOrderPage() {
   const [newBrand, setNewBrand] = useState('')
   const [newModel, setNewModel] = useState('')
   const [newSerial, setNewSerial] = useState('')
+  const [newDeviceType, setNewDeviceType] = useState('diger')
 
   const router = useRouter()
   const supabase = createClient()
@@ -56,7 +67,7 @@ export default function NewWorkOrderPage() {
 
   useEffect(() => {
     if (!customerId) { setDevices([]); setDeviceId(''); return }
-    supabase.from('devices').select('id, brand, model').eq('customer_id', customerId).then(({ data }) => setDevices(data ?? []))
+    supabase.from('devices').select('id, brand, model, device_type').eq('customer_id', customerId).then(({ data }) => setDevices(data ?? []))
   }, [customerId])
 
   const filteredCustomers = customers.filter(c => {
@@ -102,7 +113,13 @@ export default function NewWorkOrderPage() {
       if (!newBrand || !newModel) { setError('Marka ve model zorunlu'); setLoading(false); return }
       const { data } = await supabase
         .from('devices')
-        .insert({ customer_id: finalCustomerId, brand: newBrand, model: newModel, serial_number: newSerial })
+        .insert({
+          customer_id: finalCustomerId,
+          brand: newBrand,
+          model: newModel,
+          serial_number: newSerial,
+          device_type: newDeviceType,
+        })
         .select().single()
       if (data) finalDeviceId = data.id
     }
@@ -212,7 +229,11 @@ export default function NewWorkOrderPage() {
                 <select value={deviceId} onChange={e => setDeviceId(e.target.value)} className={inputCls}
                   disabled={tab === 'mevcut' && !customerId}>
                   <option value="">Cihaz seçin...</option>
-                  {devices.map(dv => <option key={dv.id} value={dv.id}>{dv.brand} {dv.model}</option>)}
+                  {devices.map(dv => (
+                    <option key={dv.id} value={dv.id}>
+                      {dv.brand} {dv.model} {dv.device_type ? `(${DEVICE_TYPES[dv.device_type] ?? ''})` : ''}
+                    </option>
+                  ))}
                 </select>
                 {tab === 'mevcut' && !customerId && (
                   <p className={`text-xs mt-2 ${d ? 'text-[#555]' : 'text-gray-400'}`}>Önce müşteri seçin</p>
@@ -220,6 +241,11 @@ export default function NewWorkOrderPage() {
               </>
             ) : (
               <div className="space-y-3">
+                <select value={newDeviceType} onChange={e => setNewDeviceType(e.target.value)} className={inputCls}>
+                  {Object.entries(DEVICE_TYPES).map(([val, label]) => (
+                    <option key={val} value={val}>{label}</option>
+                  ))}
+                </select>
                 <div className="grid grid-cols-2 gap-3">
                   <input value={newBrand} onChange={e => setNewBrand(e.target.value)} placeholder="Marka *" className={inputCls} />
                   <input value={newModel} onChange={e => setNewModel(e.target.value)} placeholder="Model *" className={inputCls} />
