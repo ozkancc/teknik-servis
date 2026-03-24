@@ -71,6 +71,7 @@ export default function CustomerDetailPage() {
   const [devModel, setDevModel] = useState('')
   const [devSerial, setDevSerial] = useState('')
   const [devNotes, setDevNotes] = useState('')
+  const [devType, setDevType] = useState('diger')
   const [savingDevice, setSavingDevice] = useState(false)
 
   const inputCls = `w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 ${d ? 'bg-[#111] border-white/[0.08] text-white placeholder-[#444]' : 'bg-white border-gray-200 text-gray-900 placeholder-gray-400'}`
@@ -120,12 +121,14 @@ export default function CustomerDetailPage() {
       setDevModel(device.model)
       setDevSerial(device.serial_number ?? '')
       setDevNotes(device.notes ?? '')
+      setDevType(device.device_type ?? 'diger')
     } else {
       setEditingDevice(null)
       setDevBrand('')
       setDevModel('')
       setDevSerial('')
       setDevNotes('')
+      setDevType('diger')
     }
     setShowDeviceForm(true)
   }
@@ -135,19 +138,21 @@ export default function CustomerDetailPage() {
     setSavingDevice(true)
     if (editingDevice) {
       await supabase.from('devices').update({
-        brand: devBrand,
-        model: devModel,
-        serial_number: devSerial,
-        notes: devNotes,
-      }).eq('id', editingDevice.id)
+  brand: devBrand,
+  model: devModel,
+  serial_number: devSerial,
+  notes: devNotes,
+  device_type: devType,
+}).eq('id', editingDevice.id)
     } else {
       await supabase.from('devices').insert({
-        customer_id: id,
-        brand: devBrand,
-        model: devModel,
-        serial_number: devSerial,
-        notes: devNotes,
-      })
+  customer_id: id,
+  brand: devBrand,
+  model: devModel,
+  serial_number: devSerial,
+  notes: devNotes,
+  device_type: devType,
+})
     }
     setShowDeviceForm(false)
     setEditingDevice(null)
@@ -258,6 +263,15 @@ export default function CustomerDetailPage() {
                   <input value={devBrand} onChange={e => setDevBrand(e.target.value)} placeholder="Marka *" className={inputCls} />
                   <input value={devModel} onChange={e => setDevModel(e.target.value)} placeholder="Model *" className={inputCls} />
                 </div>
+                <select value={devType} onChange={e => setDevType(e.target.value)} className={inputCls}>
+  <option value="notebook">Notebook</option>
+  <option value="tablet">Tablet</option>
+  <option value="cep_telefonu">Cep Telefonu</option>
+  <option value="oem_kasa">OEM Kasa</option>
+  <option value="kasa">Kasa</option>
+  <option value="elektronik_kart">Elektronik Kart</option>
+  <option value="diger">Diğer</option>
+</select>
                 <input value={devSerial} onChange={e => setDevSerial(e.target.value)} placeholder="Seri Numarası" className={inputCls} />
                 <input value={devNotes} onChange={e => setDevNotes(e.target.value)} placeholder="Notlar" className={inputCls} />
                 <div className="flex gap-2">
@@ -282,6 +296,18 @@ export default function CustomerDetailPage() {
                     <div className="flex items-start justify-between">
                       <div>
                         <p className={`text-xs font-medium ${d ? 'text-white' : 'text-gray-900'}`}>{dv.brand} {dv.model}</p>
+<span className={`text-[10px] px-1.5 py-0.5 rounded-full border ${d ? 'bg-white/5 border-white/10 text-[#666]' : 'bg-gray-100 border-gray-200 text-gray-400'}`}>
+  {({
+    notebook: 'Notebook',
+    tablet: 'Tablet',
+    cep_telefonu: 'Cep Telefonu',
+    oem_kasa: 'OEM Kasa',
+    kasa: 'Kasa',
+    elektronik_kart: 'Elektronik Kart',
+    diger: 'Diğer',
+  } as Record<string, string>)[dv.device_type] ?? 'Diğer'}
+</span>
+
                         {dv.serial_number && (
                           <p className={`text-[11px] font-mono mt-0.5 ${d ? 'text-[#444]' : 'text-gray-400'}`}>{dv.serial_number}</p>
                         )}
