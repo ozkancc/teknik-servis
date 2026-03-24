@@ -55,12 +55,23 @@ export default function CustomerDetailPage() {
   const [devices, setDevices] = useState<Device[]>([])
   const [orders, setOrders] = useState<WorkOrder[]>([])
   const [loading, setLoading] = useState(true)
+
+  // Müşteri düzenleme
   const [editing, setEditing] = useState(false)
   const [name, setName] = useState('')
   const [phone, setPhone] = useState('')
   const [email, setEmail] = useState('')
   const [address, setAddress] = useState('')
   const [saving, setSaving] = useState(false)
+
+  // Cihaz ekleme/düzenleme
+  const [showDeviceForm, setShowDeviceForm] = useState(false)
+  const [editingDevice, setEditingDevice] = useState<Device | null>(null)
+  const [devBrand, setDevBrand] = useState('')
+  const [devModel, setDevModel] = useState('')
+  const [devSerial, setDevSerial] = useState('')
+  const [devNotes, setDevNotes] = useState('')
+  const [savingDevice, setSavingDevice] = useState(false)
 
   const inputCls = `w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 ${d ? 'bg-[#111] border-white/[0.08] text-white placeholder-[#444]' : 'bg-white border-gray-200 text-gray-900 placeholder-gray-400'}`
   const cardCls = `rounded-xl border p-4 ${d ? 'bg-[#1a1a1a] border-white/[0.06]' : 'bg-white border-gray-100'}`
@@ -77,8 +88,8 @@ export default function CustomerDetailPage() {
       setAddress(c.address ?? '')
     }
 
-    const { data: d } = await supabase.from('devices').select('*').eq('customer_id', id)
-    setDevices(d ?? [])
+    const { data: dv } = await supabase.from('devices').select('*').eq('customer_id', id).order('brand')
+    setDevices(dv ?? [])
 
     const { data: o } = await supabase
       .from('work_orders')
@@ -100,6 +111,54 @@ export default function CustomerDetailPage() {
     await fetchData()
     setEditing(false)
     setSaving(false)
+  }
+
+  function openDeviceForm(device?: Device) {
+    if (device) {
+      setEditingDevice(device)
+      setDevBrand(device.brand)
+      setDevModel(device.model)
+      setDevSerial(device.serial_number ?? '')
+      setDevNotes(device.notes ?? '')
+    } else {
+      setEditingDevice(null)
+      setDevBrand('')
+      setDevModel('')
+      setDevSerial('')
+      setDevNotes('')
+    }
+    setShowDeviceForm(true)
+  }
+
+  async function saveDevice() {
+    if (!devBrand || !devModel) return
+    setSavingDevice(true)
+    if (editingDevice) {
+      await supabase.from('devices').update({
+        brand: devBrand,
+        model: devModel,
+        serial_number: devSerial,
+        notes: devNotes,
+      }).eq('id', editingDevice.id)
+    } else {
+      await supabase.from('devices').insert({
+        customer_id: id,
+        brand: devBrand,
+        model: devModel,
+        serial_number: devSerial,
+        notes: devNotes,
+      })
+    }
+    setShowDeviceForm(false)
+    setEditingDevice(null)
+    await fetchData()
+    setSavingDevice(false)
+  }
+
+  async function deleteDevice(deviceId: string) {
+    if (!confirm('Bu cihazı silmek istediğinize emin misiniz?')) return
+    await supabase.from('devices').delete().eq('id', deviceId)
+    await fetchData()
   }
 
   if (loading) return (
@@ -181,15 +240,66 @@ export default function CustomerDetailPage() {
 
           {/* Cihazlar */}
           <div className={cardCls}>
-            <p className={`text-xs uppercase tracking-wide mb-3 ${d ? 'text-[#444]' : 'text-gray-400'}`}>Cihazlar</p>
+            <div className="flex items-center justify-between mb-3">
+              <p className={`text-xs uppercase tracking-wide ${d ? 'text-[#444]' : 'text-gray-400'}`}>Cihazlar</p>
+              <button
+                onClick={() => openDeviceForm()}
+                className="bg-blue-600 hover:bg-blue-500 text-white text-xs px-3 py-1.5 rounded-lg transition">
+                + Ekle
+              </button>
+            </div>
+
+            {showDeviceForm && (
+              <div className={`rounded-lg p-3 mb-3 border space-y-2 ${d ? 'bg-[#111] border-white/[0.08]' : 'bg-gray-50 border-gray-200'}`}>
+                <p className={`text-xs font-medium mb-2 ${d ? 'text-white' : 'text-gray-900'}`}>
+                  {editingDevice ? 'Cihazı Düzenle' : 'Yeni Cihaz Ekle'}
+                </p>
+                <div className="grid grid-cols-2 gap-2">
+                  <input value={devBrand} onChange={e => setDevBrand(e.target.value)} placeholder="Marka *" className={inputCls} />
+                  <input value={devModel} onChange={e => setDevModel(e.target.value)} placeholder="Model *" className={inputCls} />
+                </div>
+                <input value={devSerial} onChange={e => setDevSerial(e.target.value)} placeholder="Seri Numarası" className={inputCls} />
+                <input value={devNotes} onChange={e => setDevNotes(e.target.value)} placeholder="Notlar" className={inputCls} />
+                <div className="flex gap-2">
+                  <button onClick={saveDevice} disabled={savingDevice || !devBrand || !devModel}
+                    className="flex-1 bg-blue-600 hover:bg-blue-500 text-white text-xs py-2 rounded-lg transition disabled:opacity-50">
+                    {savingDevice ? 'Kaydediliyor...' : 'Kaydet'}
+                  </button>
+                  <button onClick={() => { setShowDeviceForm(false); setEditingDevice(null) }}
+                    className={`flex-1 text-xs py-2 rounded-lg transition border ${d ? 'border-white/10 text-white hover:bg-white/10' : 'border-gray-200 text-gray-700 hover:bg-gray-50'}`}>
+                    İptal
+                  </button>
+                </div>
+              </div>
+            )}
+
             {devices.length === 0 ? (
               <p className={`text-xs ${d ? 'text-[#333]' : 'text-gray-300'}`}>Kayıtlı cihaz yok</p>
             ) : (
               <div className="space-y-2">
                 {devices.map(dv => (
                   <div key={dv.id} className={`rounded-lg p-3 ${d ? 'bg-[#111]' : 'bg-gray-50'}`}>
-                    <p className={`text-xs font-medium ${d ? 'text-white' : 'text-gray-900'}`}>{dv.brand} {dv.model}</p>
-                    {dv.serial_number && <p className={`text-[11px] font-mono mt-0.5 ${d ? 'text-[#444]' : 'text-gray-400'}`}>{dv.serial_number}</p>}
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <p className={`text-xs font-medium ${d ? 'text-white' : 'text-gray-900'}`}>{dv.brand} {dv.model}</p>
+                        {dv.serial_number && (
+                          <p className={`text-[11px] font-mono mt-0.5 ${d ? 'text-[#444]' : 'text-gray-400'}`}>{dv.serial_number}</p>
+                        )}
+                        {dv.notes && (
+                          <p className={`text-[11px] mt-0.5 ${d ? 'text-[#555]' : 'text-gray-400'}`}>{dv.notes}</p>
+                        )}
+                      </div>
+                      <div className="flex gap-2 ml-2">
+                        <button onClick={() => openDeviceForm(dv)}
+                          className={`text-[11px] transition ${d ? 'text-[#444] hover:text-white' : 'text-gray-400 hover:text-gray-700'}`}>
+                          Düzenle
+                        </button>
+                        <button onClick={() => deleteDevice(dv.id)}
+                          className="text-[11px] text-red-400 hover:text-red-500 transition">
+                          Sil
+                        </button>
+                      </div>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -197,7 +307,7 @@ export default function CustomerDetailPage() {
           </div>
         </div>
 
-        {/* Sağ kolon */}
+        {/* Sağ kolon — İş emirleri */}
         <div className="lg:col-span-2">
           <div className={cardCls}>
             <div className="flex items-center justify-between mb-4">
