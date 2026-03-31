@@ -25,6 +25,8 @@ type WorkOrder = {
   problem_description: string
   diagnosis: string
   created_at: string
+  warranty_days: number
+  warranty_start_date: string | null
   customers: { full_name: string; phone: string; email: string; address: string } | null
   devices: { brand: string; model: string; serial_number: string } | null
   technicians: { full_name: string } | null
@@ -73,6 +75,7 @@ export default function WorkOrderDetailPage() {
   const [loading, setLoading] = useState(true)
   const [status, setStatus] = useState('')
   const [diagnosis, setDiagnosis] = useState('')
+  const [warrantyDays, setWarrantyDays] = useState(0)
   const [parts, setParts] = useState<{id: string; name: string; list_price: number}[]>([])
   const [photos, setPhotos] = useState<string[]>([])
   const [uploadingPhoto, setUploadingPhoto] = useState(false)
@@ -99,6 +102,7 @@ export default function WorkOrderDetailPage() {
       .from('work_orders')
       .select(`
         id, order_number, status, problem_description, diagnosis, created_at,
+        warranty_days, warranty_start_date,
         customers:customer_id(full_name, phone, email, address),
         devices:device_id(brand, model, serial_number),
         technicians:technician_id(full_name),
@@ -113,6 +117,7 @@ export default function WorkOrderDetailPage() {
       setItems(wo.work_order_items ?? [])
       setStatus(wo.status)
       setDiagnosis(wo.diagnosis ?? '')
+      setWarrantyDays(wo.warranty_days ?? 0)
     }
     setLoading(false)
   }
@@ -169,7 +174,15 @@ export default function WorkOrderDetailPage() {
   }
 
   async function updateOrder() {
-    await supabase.from('work_orders').update({ status, diagnosis }).eq('id', id)
+    const updateData: any = { status, diagnosis, warranty_days: warrantyDays }
+
+    // Teslim edildi seçilince garanti başlangıç tarihini bugüne ayarla
+    if (status === 'teslim_edildi' && order?.status !== 'teslim_edildi') {
+      updateData.warranty_start_date = new Date().toISOString().split('T')[0]
+    }
+
+    await supabase.from('work_orders').update(updateData).eq('id', id)
+
     if (order?.customers?.email) {
       const statusMessages: Record<string, string> = {
         incelemede:      'Cihaziniz teknik servisimize ulasti ve inceleme surecine alindi.',
@@ -194,6 +207,7 @@ export default function WorkOrderDetailPage() {
         })
       }
     }
+    await fetchOrder()
     alert('Kaydedildi!')
   }
 
@@ -230,6 +244,21 @@ export default function WorkOrderDetailPage() {
     }, 0)
   }
 
+  function getWarrantyStatus() {
+    if (!order?.warranty_start_date || !order?.warranty_days || order.warranty_days === 0) return null
+    const start = new Date(order.warranty_start_date)
+    const end = new Date(start)
+    end.setDate(end.getDate() + order.warranty_days)
+    const today = new Date()
+    const remaining = Math.ceil((end.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
+    const isActive = remaining > 0
+    return {
+      endDate: end.toLocaleDateString('tr-TR'),
+      remaining,
+      isActive,
+    }
+  }
+
   async function generateLabel(count: number = 1) {
     if (!order) return
 
@@ -261,14 +290,12 @@ export default function WorkOrderDetailPage() {
     const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
     const pageW = 210
     const pageH = 297
-
     const labelW = 90
     const labelH = 35
     const cols = 2
     const marginX = (pageW - cols * labelW) / 2
     const marginY = 15
     const gapY = 3
-
     const rowsPerPage = Math.floor((pageH - marginY * 2) / (labelH + gapY))
     const labelsPerPage = rowsPerPage * cols
 
@@ -277,7 +304,6 @@ export default function WorkOrderDetailPage() {
 
     while (printed < count) {
       if (page > 0) doc.addPage()
-
       const labelsThisPage = Math.min(count - printed, labelsPerPage)
 
       for (let i = 0; i < labelsThisPage; i++) {
@@ -339,7 +365,6 @@ export default function WorkOrderDetailPage() {
 
         printed++
       }
-
       page++
     }
 
@@ -350,7 +375,6 @@ export default function WorkOrderDetailPage() {
     if (!order) return
 
     const pdfRenk = hexToRgb(s.pdf_renk || '#dc2626')
-
     const logoSrc = s.logo_url || '/logo.png'
     const logoImg = new window.Image()
     logoImg.crossOrigin = 'anonymous'
@@ -370,7 +394,6 @@ export default function WorkOrderDetailPage() {
     const logoData = canvas.toDataURL('image/png')
 
     const doc = new jsPDF()
-
     const maxW = 55
     const maxH = 25
     const ratio = Math.min(maxW / (logoImg.naturalWidth || 400), maxH / (logoImg.naturalHeight || 200))
@@ -436,6 +459,17 @@ export default function WorkOrderDetailPage() {
     doc.text(tr(`Seri No: ${order.devices?.serial_number ?? '-'}`), 108, rowY + 20)
     doc.text(tr(`Teknisyen: ${order.technicians?.full_name ?? '-'}`), 108, rowY + 26)
 
+    // Garanti bilgisi PDF'e ekle
+    const ws = getWarrantyStatus()
+    if (ws) {
+      doc.setFontSize(8)
+      doc.setTextColor(...pdfRenk)
+      doc.text(
+        tr(`Garanti: ${order.warranty_days} gun - Bitis: ${ws.endDate} - ${ws.isActive ? `${ws.remaining} gun kaldi` : 'Suresi doldu'}`),
+        108, rowY + 33
+      )
+    }
+
     let curY = rowY + 48
     doc.setFillColor(245, 245, 245)
     doc.roundedRect(10, curY, 182, 16, 2, 2, 'F')
@@ -493,14 +527,8 @@ export default function WorkOrderDetailPage() {
     doc.line(10, pageH - 18, 200, pageH - 18)
     doc.setTextColor(120, 120, 120)
     doc.setFontSize(8)
-    doc.text(
-      tr(`${s.firma_adi} · Tel: ${s.firma_telefon} · ${s.firma_email}`),
-      105, pageH - 11, { align: 'center' }
-    )
-    doc.text(
-      tr(`${s.firma_adres} · ${s.firma_web}`),
-      105, pageH - 5, { align: 'center' }
-    )
+    doc.text(tr(`${s.firma_adi} · Tel: ${s.firma_telefon} · ${s.firma_email}`), 105, pageH - 11, { align: 'center' })
+    doc.text(tr(`${s.firma_adres} · ${s.firma_web}`), 105, pageH - 5, { align: 'center' })
 
     doc.save(`is-emri-${order.order_number}.pdf`)
   }
@@ -517,6 +545,8 @@ export default function WorkOrderDetailPage() {
     </div>
   )
 
+  const warrantyStatus = getWarrantyStatus()
+
   return (
     <div className={`min-h-screen ${d ? 'bg-[#0f0f0f]' : 'bg-gray-50'}`}>
       <Navbar />
@@ -530,16 +560,14 @@ export default function WorkOrderDetailPage() {
           </span>
         </div>
         <div className="flex gap-2">
-          <button onClick={generatePDF}
-            className="bg-blue-600 hover:bg-blue-500 text-white text-xs px-3 py-1.5 rounded-lg transition">
+          <button onClick={generatePDF} className="bg-blue-600 hover:bg-blue-500 text-white text-xs px-3 py-1.5 rounded-lg transition">
             PDF İndir
           </button>
           <button onClick={() => setShowLabelModal(true)}
             className={`text-xs px-3 py-1.5 rounded-lg transition border ${d ? 'bg-white/10 hover:bg-white/15 text-white border-white/10' : 'bg-gray-50 hover:bg-gray-100 text-gray-700 border-gray-200'}`}>
             Etiket Yazdır
           </button>
-          <button onClick={deleteOrder}
-            className="bg-red-500/10 hover:bg-red-500/20 text-red-500 border border-red-500/20 text-xs px-3 py-1.5 rounded-lg transition">
+          <button onClick={deleteOrder} className="bg-red-500/10 hover:bg-red-500/20 text-red-500 border border-red-500/20 text-xs px-3 py-1.5 rounded-lg transition">
             Sil
           </button>
         </div>
@@ -549,6 +577,7 @@ export default function WorkOrderDetailPage() {
 
         <div className="space-y-4">
 
+          {/* Müşteri */}
           <div className={cardCls}>
             <p className={`text-xs uppercase tracking-wide mb-3 ${d ? 'text-[#444]' : 'text-gray-400'}`}>Müşteri</p>
             <p className={`font-medium text-sm ${d ? 'text-white' : 'text-gray-900'}`}>{order.customers?.full_name}</p>
@@ -574,6 +603,7 @@ export default function WorkOrderDetailPage() {
             )}
           </div>
 
+          {/* Cihaz */}
           <div className={cardCls}>
             <p className={`text-xs uppercase tracking-wide mb-3 ${d ? 'text-[#444]' : 'text-gray-400'}`}>Cihaz</p>
             <p className={`font-medium text-sm ${d ? 'text-white' : 'text-gray-900'}`}>{order.devices?.brand} {order.devices?.model}</p>
@@ -581,11 +611,28 @@ export default function WorkOrderDetailPage() {
             <p className={`text-xs ${d ? 'text-[#555]' : 'text-gray-400'}`}>Teknisyen: {order.technicians?.full_name ?? '—'}</p>
           </div>
 
+          {/* Sorun */}
           <div className={cardCls}>
             <p className={`text-xs uppercase tracking-wide mb-2 ${d ? 'text-[#444]' : 'text-gray-400'}`}>Sorun</p>
             <p className={`text-sm ${d ? 'text-[#aaa]' : 'text-gray-600'}`}>{order.problem_description}</p>
           </div>
 
+          {/* Garanti Durumu */}
+          {warrantyStatus && (
+            <div className={`${cardCls} border ${warrantyStatus.isActive ? 'border-green-500/30' : 'border-red-500/30'}`}>
+              <p className={`text-xs uppercase tracking-wide mb-2 ${d ? 'text-[#444]' : 'text-gray-400'}`}>Garanti</p>
+              <div className="flex items-center gap-2 mb-1">
+                <span className={`inline-block w-2 h-2 rounded-full ${warrantyStatus.isActive ? 'bg-green-500' : 'bg-red-500'}`} />
+                <span className={`text-xs font-medium ${warrantyStatus.isActive ? 'text-green-500' : 'text-red-500'}`}>
+                  {warrantyStatus.isActive ? `${warrantyStatus.remaining} gün kaldı` : 'Garanti süresi doldu'}
+                </span>
+              </div>
+              <p className={`text-xs ${d ? 'text-[#555]' : 'text-gray-400'}`}>{order.warranty_days} gün garanti</p>
+              <p className={`text-xs ${d ? 'text-[#555]' : 'text-gray-400'}`}>Bitiş: {warrantyStatus.endDate}</p>
+            </div>
+          )}
+
+          {/* Fotoğraflar */}
           <div className={cardCls}>
             <div className="flex items-center justify-between mb-3">
               <p className={`text-xs uppercase tracking-wide ${d ? 'text-[#444]' : 'text-gray-400'}`}>Fotoğraflar</p>
@@ -611,6 +658,7 @@ export default function WorkOrderDetailPage() {
             )}
           </div>
 
+          {/* Durum güncelle */}
           <div className={cardCls + ' space-y-3'}>
             <p className={`text-xs uppercase tracking-wide ${d ? 'text-[#444]' : 'text-gray-400'}`}>Durum Güncelle</p>
             <select value={status} onChange={e => setStatus(e.target.value)} className={inputCls}>
@@ -620,6 +668,32 @@ export default function WorkOrderDetailPage() {
             </select>
             <textarea value={diagnosis} onChange={e => setDiagnosis(e.target.value)}
               placeholder="Teşhis notları..." rows={3} className={inputCls + ' resize-none'} />
+
+            {/* Garanti süresi */}
+            <div>
+              <label className={`block text-xs mb-1.5 ${d ? 'text-[#444]' : 'text-gray-400'}`}>Garanti Süresi</label>
+              <div className="flex gap-2">
+                {[0, 30, 60, 90, 180, 365].map(day => (
+                  <button
+                    key={day}
+                    type="button"
+                    onClick={() => setWarrantyDays(day)}
+                    className={`flex-1 text-xs py-1.5 rounded-lg border transition ${
+                      warrantyDays === day
+                        ? 'bg-blue-600 text-white border-blue-600'
+                        : d ? 'border-white/10 text-[#555] hover:text-white' : 'border-gray-200 text-gray-400 hover:text-gray-700'
+                    }`}>
+                    {day === 0 ? 'Yok' : day === 365 ? '1Y' : `${day}G`}
+                  </button>
+                ))}
+              </div>
+              {warrantyDays > 0 && (
+                <p className={`text-xs mt-1.5 ${d ? 'text-[#555]' : 'text-gray-400'}`}>
+                  {warrantyDays} gün garanti — teslim tarihinden itibaren başlar
+                </p>
+              )}
+            </div>
+
             <button onClick={updateOrder}
               className="w-full bg-blue-600 hover:bg-blue-500 text-white text-xs py-2 rounded-lg transition">
               Kaydet
@@ -627,6 +701,7 @@ export default function WorkOrderDetailPage() {
           </div>
         </div>
 
+        {/* Sağ kolon */}
         <div className="lg:col-span-2">
           <div className={cardCls}>
             <p className={`text-xs uppercase tracking-wide mb-4 ${d ? 'text-[#444]' : 'text-gray-400'}`}>Maliyet Kalemleri</p>
@@ -708,36 +783,27 @@ export default function WorkOrderDetailPage() {
               Cihaz, çanta, adaptör gibi aksesuarlar için adet girin.
             </p>
             <div className="flex items-center gap-3 mb-6">
-              <button
-                onClick={() => setLabelCount(prev => Math.max(1, prev - 1))}
+              <button onClick={() => setLabelCount(prev => Math.max(1, prev - 1))}
                 className={`w-9 h-9 rounded-lg border text-lg transition ${d ? 'border-white/10 text-white hover:bg-white/10' : 'border-gray-200 text-gray-700 hover:bg-gray-50'}`}>
                 −
               </button>
               <input
-                type="number"
-                min="1"
-                max="100"
-                value={labelCount}
+                type="number" min="1" max="100" value={labelCount}
                 onChange={e => setLabelCount(Math.max(1, parseInt(e.target.value) || 1))}
                 className={`flex-1 text-center border rounded-lg px-3 py-2 text-lg font-medium focus:outline-none focus:ring-1 focus:ring-blue-500 ${d ? 'bg-[#111] border-white/[0.08] text-white' : 'bg-white border-gray-200 text-gray-900'}`}
               />
-              <button
-                onClick={() => setLabelCount(prev => Math.min(100, prev + 1))}
+              <button onClick={() => setLabelCount(prev => Math.min(100, prev + 1))}
                 className={`w-9 h-9 rounded-lg border text-lg transition ${d ? 'border-white/10 text-white hover:bg-white/10' : 'border-gray-200 text-gray-700 hover:bg-gray-50'}`}>
                 +
               </button>
             </div>
             <div className="flex gap-2">
               <button
-                onClick={() => {
-                  setShowLabelModal(false)
-                  generateLabel(labelCount)
-                }}
+                onClick={() => { setShowLabelModal(false); generateLabel(labelCount) }}
                 className="flex-1 bg-blue-600 hover:bg-blue-500 text-white text-sm py-2.5 rounded-lg transition font-medium">
                 Yazdır
               </button>
-              <button
-                onClick={() => setShowLabelModal(false)}
+              <button onClick={() => setShowLabelModal(false)}
                 className={`flex-1 text-sm py-2.5 rounded-lg transition border ${d ? 'border-white/10 text-white hover:bg-white/10' : 'border-gray-200 text-gray-700 hover:bg-gray-50'}`}>
                 İptal
               </button>
